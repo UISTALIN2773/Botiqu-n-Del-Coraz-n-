@@ -5,12 +5,12 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Modal,
   TextInput,
+  Modal,
+  Image,
 } from 'react-native';
-import { EmotionalItem, MoodType } from '../config/database';
+import { EmotionalItem } from '../config/database';
 import { storageService } from '../modules/storageService';
-import { MemoryCard } from '../components/MemoryCard';
 import { audioEngine } from '../modules/audioEngine';
 import { HapticsService } from '../modules/hapticsService';
 
@@ -19,174 +19,231 @@ interface MemoriesScreenProps {
 }
 
 export const MemoriesScreen: React.FC<MemoriesScreenProps> = ({ onPlayMemory }) => {
-  const [filter, setFilter] = useState<'todos' | 'favoritos' | 'audios' | 'cartas'>('todos');
+  const [filter, setFilter] = useState<'todos' | 'audios' | 'letters' | 'favoritos'>('todos');
   const [memories, setMemories] = useState<EmotionalItem[]>(storageService.getMemories());
-  const [playingId, setPlayingId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [showSearch, setShowSearch] = useState<boolean>(false);
 
-  // Add Memory Modal State
-  const [isAddModalVisible, setIsAddModalVisible] = useState<boolean>(false);
+  // Creation Modal State (+ Crear)
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
   const [newTitle, setNewTitle] = useState<string>('');
   const [newSubtitle, setNewSubtitle] = useState<string>('');
   const [newNote, setNewNote] = useState<string>('');
-  const [newMood, setNewMood] = useState<MoodType>('te_extrano');
-  const [newTag, setNewTag] = useState<string>('Especial');
-
-  const filteredMemories = memories.filter((m) => {
-    if (filter === 'favoritos') return m.isFavorite;
-    if (filter === 'audios') return m.type === 'audio' || m.type === 'mixto';
-    if (filter === 'cartas') return m.type === 'carta';
-    return true;
-  });
+  const [newAudioName, setNewAudioName] = useState<string>('');
+  const [newPhotoUri, setNewPhotoUri] = useState<string>('');
 
   const handleToggleFavorite = (id: string) => {
+    HapticsService.triggerSoftFeedback();
     storageService.toggleFavorite(id);
     setMemories([...storageService.getMemories()]);
   };
 
-  const handlePlay = (item: EmotionalItem) => {
-    if (playingId === item.id) {
-      audioEngine.stopAll();
-      setPlayingId(null);
-    } else {
-      setPlayingId(item.id);
-      onPlayMemory(item);
-    }
-  };
+  const handleSaveNewMemory = () => {
+    if (!newTitle.trim()) return;
 
-  const handleCreateMemory = () => {
-    if (!newTitle.trim() || !newNote.trim()) return;
-
-    storageService.addCustomMemory({
-      mood: newMood,
-      type: 'carta',
-      title: newTitle,
-      subtitle: newSubtitle || 'Nota escrita por mí',
-      note: newNote,
-      date: new Date().toLocaleDateString('es-ES', { month: 'short', day: 'numeric', year: 'numeric' }),
-      ambientTrack: 'piano',
-      durationSeconds: 30,
+    HapticsService.triggerSuccessFeedback();
+    const created = storageService.addCustomMemory({
+      title: newTitle.trim(),
+      subtitle: newSubtitle.trim() || 'Recuerdo especial de nosotros',
+      note: newNote.trim() || 'Siempre estaré aquí contigo.',
+      mood: 'te_extrano',
+      voiceFilename: newAudioName.trim() || 'voice_te_extrano_01.wav',
+      ambientTrack: 'lofi',
+      durationSeconds: 120,
       isFavorite: false,
-      tag: newTag || 'Personal',
+      dateAdded: new Date().toISOString().split('T')[0],
+      photoUrl: newPhotoUri.trim() || undefined,
     });
 
-    setMemories([...storageService.getMemories()]);
-    setIsAddModalVisible(false);
+    setMemories([created, ...storageService.getMemories()]);
     setNewTitle('');
     setNewSubtitle('');
     setNewNote('');
-    HapticsService.triggerSuccessFeedback();
+    setNewAudioName('');
+    setNewPhotoUri('');
+    setIsCreateModalOpen(false);
   };
 
+  // Filter memories
+  const filteredList = memories.filter((m) => {
+    const matchesSearch =
+      m.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      m.note.toLowerCase().includes(searchQuery.toLowerCase());
+    if (!matchesSearch) return false;
+
+    if (filter === 'favoritos') return m.isFavorite;
+    if (filter === 'audios') return !!m.voiceFilename;
+    if (filter === 'letters') return !!m.note;
+    return true;
+  });
+
   return (
-    <View style={styles.container}>
-      {/* Top Filter Bar */}
-      <View style={styles.topFilterBar}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+    <View style={styles.root}>
+      {/* Barra de Filtros y Búsqueda Superior */}
+      <View style={styles.topHeader}>
+        <View style={styles.headerTitleRow}>
+          <Text style={styles.headerTitle}>Baúl de Recuerdos 💌</Text>
+          {/* Icono de lupa (🔍) en la esquina superior derecha */}
+          <TouchableOpacity
+            onPress={() => {
+              HapticsService.triggerSoftFeedback();
+              setShowSearch(!showSearch);
+            }}
+            style={styles.searchIconBtn}
+          >
+            <Text style={styles.searchIconText}>🔍</Text>
+          </TouchableOpacity>
+        </View>
+
+        {showSearch && (
+          <TextInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Buscar por carta, palabra o fecha..."
+            placeholderTextColor="#8C6F58"
+            style={styles.searchInput}
+          />
+        )}
+
+        {/* Barra de píldoras horizontales deslizables */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterPillsRow}>
           {[
             { key: 'todos', label: 'Todos' },
-            { key: 'favoritos', label: '⭐ Favoritos' },
-            { key: 'audios', label: '🎙️ Audios' },
-            { key: 'cartas', label: '💌 Cartas' },
-          ].map((f) => {
-            const isSelected = filter === f.key;
+            { key: 'audios', label: 'Audios 🎙️' },
+            { key: 'letters', label: 'Letters 📜' },
+            { key: 'favoritos', label: 'Favoritos ⭐' },
+          ].map((tab) => {
+            const isActive = filter === tab.key;
             return (
               <TouchableOpacity
-                key={f.key}
-                activeOpacity={0.8}
+                key={tab.key}
+                activeOpacity={0.85}
                 onPress={() => {
                   HapticsService.triggerSoftFeedback();
-                  setFilter(f.key as any);
+                  setFilter(tab.key as any);
                 }}
-                style={[styles.filterChip, isSelected && styles.filterChipActive]}
+                style={[styles.filterPill, isActive && styles.filterPillActive]}
               >
-                <Text style={[styles.filterText, isSelected && styles.filterTextActive]}>
-                  {f.label}
+                <Text style={[styles.filterPillText, isActive && styles.filterPillTextActive]}>
+                  {tab.label}
                 </Text>
               </TouchableOpacity>
             );
           })}
         </ScrollView>
-
-        {/* Add Memory Button */}
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => setIsAddModalVisible(true)}
-          style={styles.addBtn}
-        >
-          <Text style={styles.addBtnText}>+ Crear</Text>
-        </TouchableOpacity>
       </View>
 
-      {/* Memories List */}
+      {/* Listado de Tarjetas de Memoria */}
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.listContainer}>
-        {filteredMemories.map((item) => (
-          <MemoryCard
-            key={item.id}
-            item={item}
-            isPlaying={playingId === item.id}
-            onPlay={handlePlay}
-            onToggleFavorite={handleToggleFavorite}
-          />
+        {filteredList.map((item) => (
+          <View key={item.id} style={styles.memoryCard}>
+            {/* Extremo Izquierdo: Miniatura cuadrada (ImageView) */}
+            <View style={styles.thumbnailSquare}>
+              <Text style={styles.thumbnailEmoji}>
+                {item.voiceFilename ? '🎙️' : '💌'}
+              </Text>
+            </View>
+
+            {/* Centro: Título, fecha y contador de archivos adjuntos */}
+            <View style={styles.memoryContentCol}>
+              <Text style={styles.memoryTitle}>{item.title}</Text>
+              <Text style={styles.memorySubtitle}>{item.subtitle}</Text>
+              <View style={styles.metaRow}>
+                <Text style={styles.memoryDate}>{item.dateAdded}</Text>
+                <Text style={styles.attachmentCount}>• 1 Audio + 1 Carta</Text>
+              </View>
+            </View>
+
+            {/* Extremo Derecho: Botón de tres puntos verticales (⋮) para opciones */}
+            <TouchableOpacity
+              onPress={() => handleToggleFavorite(item.id)}
+              style={styles.menuDotsBtn}
+            >
+              <Text style={styles.menuDotsText}>
+                {item.isFavorite ? '⭐' : '⋮'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         ))}
 
-        {filteredMemories.length === 0 && (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>💌</Text>
-            <Text style={styles.emptyTitle}>No hay recuerdos en este filtro</Text>
-            <Text style={styles.emptySub}>
-              Crea una carta o audio especial usando el botón "+ Crear" arriba.
-            </Text>
-          </View>
-        )}
+        <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Manual Memory Creator Modal */}
-      <Modal visible={isAddModalVisible} transparent animationType="slide">
+      {/* Esquina Inferior Derecha: Botón de Acción Flotante (FAB) rectangular en tono crema: + Crear */}
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPress={() => {
+          HapticsService.triggerSoftFeedback();
+          setIsCreateModalOpen(true);
+        }}
+        style={styles.fabCrear}
+      >
+        <Text style={styles.fabCrearText}>+ Crear</Text>
+      </TouchableOpacity>
+
+      {/* Modal de Creación y Subida de Fotos/Audios */}
+      <Modal visible={isCreateModalOpen} transparent animationType="slide">
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Crear Nota o Recuerdo Manual</Text>
+          <View style={styles.modalPaper}>
+            <Text style={styles.modalTitle}>Redactar y Guardar Recuerdo ✍️</Text>
             <Text style={styles.modalSub}>
-              Escribe una dedicatoria o mensaje que tu pareja pueda leer en cualquier momento.
+              Se guardará permanentemente en el almacenamiento seguro de tu teléfono.
             </Text>
 
             <TextInput
-              placeholder="Título (ej: Para cuando tengas dudas)"
               value={newTitle}
               onChangeText={setNewTitle}
-              style={styles.input}
+              placeholder="Título de la entrada (ej. Ánimo hoy, Carta 4)..."
               placeholderTextColor="#94A3B8"
+              style={styles.modalInput}
             />
 
             <TextInput
-              placeholder="Subtítulo corto (ej: Recuerda esto)"
               value={newSubtitle}
               onChangeText={setNewSubtitle}
-              style={styles.input}
+              placeholder="Subtítulo corto (ej. Para leer cuando me extrañes)..."
               placeholderTextColor="#94A3B8"
+              style={styles.modalInput}
             />
 
             <TextInput
-              placeholder="Escribe tu mensaje cariñoso aquí..."
               value={newNote}
               onChangeText={setNewNote}
-              style={[styles.input, styles.textArea]}
               multiline
               numberOfLines={4}
+              placeholder="Escribe la carta cariñosa completa..."
               placeholderTextColor="#94A3B8"
+              style={[styles.modalInput, { height: 90, textAlignVertical: 'top' }]}
             />
 
-            <View style={styles.modalButtonsRow}>
+            <TextInput
+              value={newAudioName}
+              onChangeText={setNewAudioName}
+              placeholder="Nombre del audio (ej. nota_whatsapp_01.opus)..."
+              placeholderTextColor="#94A3B8"
+              style={styles.modalInput}
+            />
+
+            <TextInput
+              value={newPhotoUri}
+              onChangeText={setNewPhotoUri}
+              placeholder="Ruta o URL de la foto adjunta..."
+              placeholderTextColor="#94A3B8"
+              style={styles.modalInput}
+            />
+
+            <View style={styles.modalBtnRow}>
               <TouchableOpacity
-                onPress={() => setIsAddModalVisible(false)}
-                style={styles.cancelBtn}
+                onPress={() => setIsCreateModalOpen(false)}
+                style={styles.modalCancelBtn}
               >
-                <Text style={styles.cancelBtnText}>Cancelar</Text>
+                <Text style={styles.modalCancelText}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={handleCreateMemory}
-                style={styles.saveBtn}
+                onPress={handleSaveNewMemory}
+                style={styles.modalSaveBtn}
               >
-                <Text style={styles.saveBtnText}>Guardar en el Baúl</Text>
+                <Text style={styles.modalSaveText}>Guardar Permanente</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -197,137 +254,212 @@ export const MemoriesScreen: React.FC<MemoriesScreenProps> = ({ onPlayMemory }) 
 };
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FAF5EE',
   },
-  topFilterBar: {
+  topHeader: {
+    paddingHorizontal: 18,
+    paddingTop: 14,
+    paddingBottom: 10,
+    backgroundColor: '#FAF5EE',
+  },
+  headerTitleRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    marginBottom: 8,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#2B1810',
+  },
+  searchIconBtn: {
+    padding: 6,
+  },
+  searchIconText: {
+    fontSize: 18,
+  },
+  searchInput: {
     backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    fontSize: 13,
+    color: '#2B1810',
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#EBDCCE',
   },
-  filterScroll: {
+  filterPillsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    paddingVertical: 4,
   },
-  filterChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+  filterPill: {
+    backgroundColor: '#F5EBE1',
     borderRadius: 16,
-    backgroundColor: '#F1F5F9',
-    marginRight: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#EBDCCE',
   },
-  filterChipActive: {
-    backgroundColor: '#E11D48',
+  filterPillActive: {
+    backgroundColor: '#2B1810',
+    borderColor: '#2B1810',
   },
-  filterText: {
-    fontSize: 12,
+  filterPillText: {
+    fontSize: 11,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#8C6F58',
   },
-  filterTextActive: {
+  filterPillTextActive: {
     color: '#FFFFFF',
-  },
-  addBtn: {
-    backgroundColor: '#0F172A',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginLeft: 6,
-  },
-  addBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
   },
   listContainer: {
-    padding: 16,
+    padding: 18,
   },
-  emptyContainer: {
+  memoryCard: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 60,
-  },
-  emptyIcon: {
-    fontSize: 48,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 14,
     marginBottom: 12,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#EBDCCE',
   },
-  emptyTitle: {
+  thumbnailSquare: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#FAF3ED',
+    borderWidth: 1,
+    borderColor: '#EBDCCE',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  thumbnailEmoji: {
+    fontSize: 22,
+  },
+  memoryContentCol: {
+    flex: 1,
+  },
+  memoryTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#2B1810',
+  },
+  memorySubtitle: {
+    fontSize: 11,
+    color: '#8C6F58',
+    marginTop: 1,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  memoryDate: {
+    fontSize: 10,
+    color: '#A1826E',
+  },
+  attachmentCount: {
+    fontSize: 10,
+    color: '#A1826E',
+    marginLeft: 4,
+  },
+  menuDotsBtn: {
+    padding: 8,
+  },
+  menuDotsText: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#1E293B',
+    color: '#8C6F58',
+    fontWeight: '900',
   },
-  emptySub: {
+  fabCrear: {
+    position: 'absolute',
+    bottom: 80,
+    right: 20,
+    backgroundColor: '#F5EBE1', // Tono crema
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    borderWidth: 1.5,
+    borderColor: '#C4A48A',
+  },
+  fabCrearText: {
     fontSize: 13,
-    color: '#64748B',
-    textAlign: 'center',
-    marginTop: 6,
-    paddingHorizontal: 30,
+    fontWeight: '900',
+    color: '#2B1810',
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
     padding: 20,
   },
-  modalCard: {
-    backgroundColor: '#FFFFFF',
+  modalPaper: {
+    backgroundColor: '#FFFDF9',
     borderRadius: 24,
-    padding: 20,
+    padding: 22,
+    borderWidth: 1.5,
+    borderColor: '#EBDCCE',
   },
   modalTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#2B1810',
+    marginBottom: 4,
   },
   modalSub: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 2,
+    fontSize: 11,
+    color: '#8C6F58',
     marginBottom: 14,
   },
-  input: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 13,
-    color: '#0F172A',
+  modalInput: {
+    backgroundColor: '#FAF5EE',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 12,
+    color: '#2B1810',
     marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#EBDCCE',
   },
-  textArea: {
-    height: 90,
-    textAlignVertical: 'top',
-  },
-  modalButtonsRow: {
+  modalBtnRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     marginTop: 8,
   },
-  cancelBtn: {
+  modalCancelBtn: {
     paddingHorizontal: 16,
     paddingVertical: 10,
     marginRight: 8,
   },
-  cancelBtnText: {
-    color: '#64748B',
+  modalCancelText: {
+    color: '#8C6F58',
     fontWeight: '700',
-    fontSize: 13,
+    fontSize: 12,
   },
-  saveBtn: {
+  modalSaveBtn: {
     backgroundColor: '#E11D48',
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 14,
   },
-  saveBtnText: {
+  modalSaveText: {
     color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 13,
+    fontWeight: '800',
+    fontSize: 12,
   },
 });

@@ -9,6 +9,8 @@ import {
   TextInput,
   TouchableOpacity,
   Modal,
+  BackHandler,
+  NativeModules,
 } from 'react-native';
 import { MoodType, EmotionalItem } from './config/database';
 import { storageService } from './modules/storageService';
@@ -29,6 +31,8 @@ import { FutureTreeScreen } from './screens/FutureTreeScreen';
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [isQuickPopupVisible, setIsQuickPopupVisible] = useState<boolean>(false);
+  const [isFromWidget, setIsFromWidget] = useState<boolean>(false);
+  const [autoplayAudio, setAutoplayAudio] = useState<boolean>(false);
   const [popupMood, setPopupMood] = useState<MoodType>('ansiedad');
   const [isLocked, setIsLocked] = useState<boolean>(false);
   const [enteredPin, setEnteredPin] = useState<string>('');
@@ -40,33 +44,28 @@ export default function App() {
   const [isTimeCapsulesVisible, setIsTimeCapsulesVisible] = useState<boolean>(false);
   const [isFutureTreeVisible, setIsFutureTreeVisible] = useState<boolean>(false);
 
-  // Shake-to-Calm secret message modal
-  const [isSecretMessageVisible, setIsSecretMessageVisible] = useState<boolean>(false);
-
   useEffect(() => {
-    WidgetBridge.updateWidgetData(popupMood);
+    // 1. Initialize data from permanent storage on disk
+    storageService.initFromDisk().then(() => {
+      WidgetBridge.updateWidgetData(popupMood);
+      const prefs = storageService.getPreferences();
+      if (prefs.isPinEnabled && prefs.pinCode) {
+        setIsLocked(true);
+      }
+    });
 
-    const prefs = storageService.getPreferences();
-    if (prefs.isPinEnabled && prefs.pinCode) {
-      setIsLocked(true);
-    }
-
-    // Android Widget Deep Link Handler
+    // 2. Android Widget Deep Link Handler
     const handleDeepLink = (event: { url: string }) => {
       const url = event.url;
       if (url && url.includes('botiquin://open')) {
         const moodMatch = url.match(/mood=([a-zA-Z_]+)/);
         const mood = (moodMatch ? moodMatch[1] : 'ansiedad') as MoodType;
-        setPopupMood(mood);
-        setIsQuickPopupVisible(true);
+        const auto = url.includes('autoplay=true');
 
-        if (url.includes('autoplay=true')) {
-          const memories = storageService.getMemoriesByMood(mood);
-          const first = memories[0];
-          if (first) {
-            audioEngine.playDualTrack(first.voiceFilename, first.ambientTrack);
-          }
-        }
+        setPopupMood(mood);
+        setAutoplayAudio(auto);
+        setIsFromWidget(true);
+        setIsQuickPopupVisible(true);
       }
     };
 
@@ -84,6 +83,8 @@ export default function App() {
 
   const handleSelectMoodFromHome = (mood: MoodType) => {
     setPopupMood(mood);
+    setIsFromWidget(false);
+    setAutoplayAudio(false);
     setIsQuickPopupVisible(true);
   };
 
@@ -103,16 +104,37 @@ export default function App() {
     }
   };
 
-  const triggerShakeToCalm = () => {
-    HapticsService.triggerHeartbeat();
-    setIsSecretMessageVisible(true);
-    audioEngine.playDualTrack('voice_te_extrano_01.wav', 'lofi');
+  const handleClosePopup = () => {
+    setIsQuickPopupVisible(false);
+    if (isFromWidget) {
+      if (NativeModules.LocalStorageModule) {
+        NativeModules.LocalStorageModule.closePopupToHome();
+      } else {
+        BackHandler.exitApp();
+      }
+    }
   };
 
   const prefs = storageService.getPreferences();
-  const isOLED = prefs.themeName === 'midnight_star';
-  const bgColor = isOLED ? '#000000' : '#FFFFFF';
-  const textColor = isOLED ? '#F59E0B' : '#0F172A';
+  const isOLED = prefs.themeName === 'oled_black';
+  const bgColor = isOLED ? '#000000' : '#FAF5EE';
+
+  // If opened directly from widget, render ONLY the floating popup modal on top of a transparent background
+  if (isFromWidget && isQuickPopupVisible) {
+    return (
+      <View style={{ flex: 1, backgroundColor: 'transparent' }}>
+        <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+        <QuickPopupModal
+          visible={isQuickPopupVisible}
+          initialMood={popupMood}
+          autoplay={autoplayAudio}
+          isFromWidget={true}
+          onClose={handleClosePopup}
+          onOpenFullApp={() => setIsFromWidget(false)}
+        />
+      </View>
+    );
+  }
 
   // If locked by PIN
   if (isLocked) {
@@ -120,9 +142,9 @@ export default function App() {
       <SafeAreaView style={[styles.lockedContainer, { backgroundColor: bgColor }]}>
         <StatusBar barStyle={isOLED ? 'light-content' : 'dark-content'} backgroundColor={bgColor} />
         <Text style={styles.lockedHeartIcon}>🔒</Text>
-        <Text style={[styles.lockedHeading, { color: textColor }]}>Baúl Protegido</Text>
+        <Text style={styles.lockedHeading}>Baúl Protegido</Text>
         <Text style={styles.lockedSub}>
-          Ingresa el código PIN para acceder a tus recuerdos privados.
+          Ingresa el código PIN para acceder a tus cartas y recuerdos privados.
         </Text>
 
         <TextInput
@@ -131,9 +153,9 @@ export default function App() {
           keyboardType="numeric"
           maxLength={4}
           secureTextEntry
-          style={[styles.pinInput, isOLED && { backgroundColor: '#18181B', color: '#F59E0B', borderColor: '#3F3F46' }]}
+          style={styles.pinInput}
           placeholder="••••"
-          placeholderTextColor="#94A3B8"
+          placeholderTextColor="#A1826E"
           autoFocus
         />
 
@@ -142,7 +164,7 @@ export default function App() {
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={handleUnlockPin}
-          style={[styles.unlockBtn, { backgroundColor: prefs.widgetColor || '#E11D48' }]}
+          style={styles.unlockBtn}
         >
           <Text style={styles.unlockBtnText}>Desbloquear</Text>
         </TouchableOpacity>
@@ -150,6 +172,7 @@ export default function App() {
         <TouchableOpacity
           onPress={() => {
             setPopupMood('ansiedad');
+            setIsFromWidget(false);
             setIsQuickPopupVisible(true);
           }}
           style={styles.emergencyQuickBtn}
@@ -189,52 +212,22 @@ export default function App() {
         {activeTab === 'settings' && <SettingsScreen />}
       </View>
 
-      {/* Shake-to-Calm Floating Shortcut Button */}
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={triggerShakeToCalm}
-        style={[styles.shakeFab, { backgroundColor: prefs.widgetColor || '#E11D48' }]}
-      >
-        <Text style={styles.shakeFabText}>✨</Text>
-      </TouchableOpacity>
-
       {/* Persistent Bottom Tab Bar */}
       <BottomTabBar
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        accentColor={prefs.widgetColor || '#E11D48'}
+        accentColor="#E11D48"
       />
 
       {/* Floating Quick Popup Modal */}
       <QuickPopupModal
         visible={isQuickPopupVisible}
         initialMood={popupMood}
-        onClose={() => setIsQuickPopupVisible(false)}
-        onOpenFullApp={() => setIsQuickPopupVisible(false)}
+        autoplay={autoplayAudio}
+        isFromWidget={isFromWidget}
+        onClose={handleClosePopup}
+        onOpenFullApp={() => setIsFromWidget(false)}
       />
-
-      {/* Shake-to-Calm Secret Message Modal */}
-      <Modal visible={isSecretMessageVisible} transparent animationType="fade">
-        <View style={styles.modalBackdrop}>
-          <View style={styles.secretCard}>
-            <Text style={styles.secretIcon}>✨💌✨</Text>
-            <Text style={styles.secretTitle}>¡Mensaje Secreto Inesperado!</Text>
-            <Text style={styles.secretText}>
-              "Si abriste esto por sorpresa, solo quiero recordarte algo muy sencillo: Eres la persona más maravillosa que conozco. No dejes que las dudas te apaguen el brillo. Te amo con todo mi ser."
-            </Text>
-            <Text style={styles.secretAuthor}>— Con todo mi amor, {prefs.senderName} ❤️</Text>
-            <TouchableOpacity
-              onPress={() => {
-                audioEngine.stopAll();
-                setIsSecretMessageVisible(false);
-              }}
-              style={[styles.secretCloseBtn, { backgroundColor: prefs.widgetColor || '#E11D48' }]}
-            >
-              <Text style={styles.secretCloseBtnText}>Guardar en mi Corazón</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
 
       {/* Modal 1: Panic SOS Grounding */}
       <Modal visible={isSOSVisible} animationType="slide">
@@ -245,37 +238,22 @@ export default function App() {
 
       {/* Modal 2: Doubt Wall */}
       <Modal visible={isDoubtWallVisible} animationType="slide">
-        <SafeAreaView style={{ flex: 1, backgroundColor: bgColor }}>
-          <View style={[styles.modalHeaderClose, isOLED && { backgroundColor: '#121212', borderBottomColor: '#27272A' }]}>
-            <TouchableOpacity onPress={() => setIsDoubtWallVisible(false)} style={styles.closeBackBtn}>
-              <Text style={[styles.closeBackText, isOLED && { color: '#F59E0B' }]}>← Volver</Text>
-            </TouchableOpacity>
-          </View>
-          <DoubtWallScreen />
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#000000' }}>
+          <DoubtWallScreen onClose={() => setIsDoubtWallVisible(false)} />
         </SafeAreaView>
       </Modal>
 
       {/* Modal 3: Time Capsules */}
       <Modal visible={isTimeCapsulesVisible} animationType="slide">
         <SafeAreaView style={{ flex: 1, backgroundColor: bgColor }}>
-          <View style={[styles.modalHeaderClose, isOLED && { backgroundColor: '#121212', borderBottomColor: '#27272A' }]}>
-            <TouchableOpacity onPress={() => setIsTimeCapsulesVisible(false)} style={styles.closeBackBtn}>
-              <Text style={[styles.closeBackText, isOLED && { color: '#F59E0B' }]}>← Volver</Text>
-            </TouchableOpacity>
-          </View>
-          <TimeCapsulesScreen />
+          <TimeCapsulesScreen onClose={() => setIsTimeCapsulesVisible(false)} />
         </SafeAreaView>
       </Modal>
 
       {/* Modal 4: Future Tree */}
       <Modal visible={isFutureTreeVisible} animationType="slide">
         <SafeAreaView style={{ flex: 1, backgroundColor: bgColor }}>
-          <View style={[styles.modalHeaderClose, isOLED && { backgroundColor: '#121212', borderBottomColor: '#27272A' }]}>
-            <TouchableOpacity onPress={() => setIsFutureTreeVisible(false)} style={styles.closeBackBtn}>
-              <Text style={[styles.closeBackText, isOLED && { color: '#F59E0B' }]}>← Volver</Text>
-            </TouchableOpacity>
-          </View>
-          <FutureTreeScreen />
+          <FutureTreeScreen onClose={() => setIsFutureTreeVisible(false)} />
         </SafeAreaView>
       </Modal>
     </SafeAreaView>
@@ -285,47 +263,14 @@ export default function App() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FAF5EE',
   },
   content: {
     flex: 1,
   },
-  shakeFab: {
-    position: 'absolute',
-    right: 20,
-    bottom: 80,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-  },
-  shakeFabText: {
-    fontSize: 22,
-  },
-  modalHeaderClose: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  closeBackBtn: {
-    padding: 4,
-  },
-  closeBackText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
   lockedContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FAF5EE',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
@@ -337,27 +282,27 @@ const styles = StyleSheet.create({
   lockedHeading: {
     fontSize: 22,
     fontWeight: '900',
-    color: '#0F172A',
+    color: '#2B1810',
   },
   lockedSub: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#8C6F58',
     textAlign: 'center',
     marginTop: 4,
     marginBottom: 20,
   },
   pinInput: {
     width: 160,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
     borderWidth: 2,
-    borderColor: '#E2E8F0',
+    borderColor: '#EBDCCE',
     borderRadius: 16,
     fontSize: 28,
     textAlign: 'center',
     letterSpacing: 10,
     paddingVertical: 10,
-    color: '#0F172A',
-    fontWeight: '800',
+    color: '#2B1810',
+    fontWeight: '900',
   },
   pinErrorText: {
     color: '#EF4444',
@@ -371,10 +316,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     marginTop: 16,
+    backgroundColor: '#E11D48',
   },
   unlockBtnText: {
     color: '#FFFFFF',
-    fontWeight: '700',
+    fontWeight: '800',
     fontSize: 14,
   },
   emergencyQuickBtn: {
@@ -385,53 +331,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#E11D48',
     fontWeight: '700',
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  secretCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 24,
-    alignItems: 'center',
-  },
-  secretIcon: {
-    fontSize: 32,
-    marginBottom: 10,
-  },
-  secretTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#0F172A',
-    marginBottom: 8,
-  },
-  secretText: {
-    fontSize: 13,
-    lineHeight: 20,
-    color: '#334155',
-    textAlign: 'center',
-    fontStyle: 'italic',
-    marginBottom: 12,
-  },
-  secretAuthor: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#E11D48',
-    marginBottom: 18,
-  },
-  secretCloseBtn: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 18,
-    width: '100%',
-    alignItems: 'center',
-  },
-  secretCloseBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-    fontSize: 13,
   },
 });

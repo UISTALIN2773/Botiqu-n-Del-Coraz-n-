@@ -5,21 +5,20 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Modal,
 } from 'react-native';
 import { DoubtItem } from '../config/database';
 import { storageService } from '../modules/storageService';
 import { audioEngine } from '../modules/audioEngine';
 import { HapticsService } from '../modules/hapticsService';
 
-export const DoubtWallScreen: React.FC = () => {
+interface DoubtWallScreenProps {
+  onClose?: () => void;
+}
+
+export const DoubtWallScreen: React.FC<DoubtWallScreenProps> = ({ onClose }) => {
   const doubts = storageService.getDoubtItems();
   const [expandedId, setExpandedId] = useState<string | null>(doubts[0]?.id || null);
   const [playingId, setPlayingId] = useState<string | null>(null);
-  const [isRoutineModalVisible, setIsRoutineModalVisible] = useState<boolean>(false);
-
-  const routine = storageService.getCurrentRoutineStatus();
-  const prefs = storageService.getPreferences();
 
   const handleToggle = (id: string) => {
     HapticsService.triggerSoftFeedback();
@@ -40,294 +39,213 @@ export const DoubtWallScreen: React.FC = () => {
 
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.container}>
-      <Text style={styles.heading}>Muro de las Dudas e Inseguridades 🛡️</Text>
-      <Text style={styles.subheading}>
-        Para esos momentos en los que tu cabeza te hace sobrepensar y necesitas recordar la verdad.
+      {/* Cabecera y Fondo Negro Absoluto #000000 OLED */}
+      <View style={styles.navBar}>
+        {onClose && (
+          <TouchableOpacity onPress={onClose} style={styles.backBtn}>
+            <Text style={styles.backArrow}>←</Text>
+          </TouchableOpacity>
+        )}
+        <Text style={styles.navTitle}>Muro de las Dudas e Inseguridades</Text>
+        <View style={{ width: 24 }} />
+      </View>
+
+      <Text style={styles.nightHint}>
+        Modo Nocturno OLED: Respuestas calmadas para desarmar los pensamientos de madrugada.
       </Text>
 
-      {/* Button: ¿Dónde está ahora mi amor? (Horario de rutina habitual sin GPS) */}
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={() => {
-          HapticsService.triggerSoftFeedback();
-          setIsRoutineModalVisible(true);
-        }}
-        style={styles.routineBanner}
-      >
-        <Text style={styles.routineIcon}>🕒</Text>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.routineTitle}>¿Dónde está {prefs.senderName} ahora?</Text>
-          <Text style={styles.routineSub}>
-            Toca para ver qué suele estar haciendo según la hora del día.
-          </Text>
-        </View>
-        <Text style={styles.routineArrow}>➔</Text>
-      </TouchableOpacity>
-
+      {/* Módulos Tipo Acordeón (5 Filas) */}
       {doubts.map((item) => {
         const isExpanded = expandedId === item.id;
         const isPlaying = playingId === item.id;
+
+        if (isExpanded) {
+          /* Estado Expandido: Tarjeta completa con fondo crema claro #F5EBE1 */
+          return (
+            <View key={item.id} style={styles.expandedCardCream}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => handleToggle(item.id)}
+                style={styles.expandedHeader}
+              >
+                <Text style={styles.expandedTriggerText}>{item.trigger}</Text>
+                <Text style={styles.arrowIconCream}>∧</Text>
+              </TouchableOpacity>
+
+              <Text style={styles.expandedAnswerTitle}>{item.answerTitle}</Text>
+              <Text style={styles.expandedExplanation}>"{item.explanation}"</Text>
+
+              {/* Afirmación Final */}
+              <View style={styles.affirmationBox}>
+                <Text style={styles.affirmationLabel}>LA VERDAD:</Text>
+                <Text style={styles.affirmationText}>{item.affirmation}</Text>
+              </View>
+
+              {/* Botón para reproducir nota de voz explicativa */}
+              {item.voiceFilename && (
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => handlePlayVoice(item)}
+                  style={[styles.voiceBtnCoffee, isPlaying && styles.voiceBtnCoffeeActive]}
+                >
+                  <Text style={styles.voiceBtnText}>
+                    {isPlaying ? '⏸ Pausar Explicación' : '▶ Escuchar mi respuesta en audio'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          );
+        }
+
+        /* Estados Colapsados: Bloques horizontales en relieve oscuro con esquinas redondeadas 16dp */
         return (
-          <View key={item.id} style={styles.card}>
-            {/* Header Accordion Trigger */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => handleToggle(item.id)}
-              style={styles.cardHeader}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={styles.triggerText}>{item.trigger}</Text>
-                <Text style={styles.answerPreview}>{item.answerTitle}</Text>
-              </View>
-              <Text style={styles.arrowIcon}>{isExpanded ? '▲' : '▼'}</Text>
-            </TouchableOpacity>
-
-            {/* Expanded Content */}
-            {isExpanded && (
-              <View style={styles.cardBody}>
-                <Text style={styles.explanationText}>"{item.explanation}"</Text>
-
-                {/* Affirmation Badge */}
-                <View style={styles.affirmationBox}>
-                  <Text style={styles.affirmationLabel}>💡 La Verdad:</Text>
-                  <Text style={styles.affirmationText}>{item.affirmation}</Text>
-                </View>
-
-                {/* Audio Button */}
-                {item.voiceFilename && (
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    onPress={() => handlePlayVoice(item)}
-                    style={[styles.audioBtn, isPlaying && styles.audioBtnActive]}
-                  >
-                    <Text style={styles.audioBtnText}>
-                      {isPlaying ? '⏸ Pausar Nota de Voz' : '▶ Escuchar mi respuesta en audio'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-          </View>
+          <TouchableOpacity
+            key={item.id}
+            activeOpacity={0.85}
+            onPress={() => handleToggle(item.id)}
+            style={styles.collapsedBlockDark}
+          >
+            <Text style={styles.collapsedTriggerText}>{item.trigger}</Text>
+            <Text style={styles.arrowIconDark}>∨</Text>
+          </TouchableOpacity>
         );
       })}
-
-      {/* Routine Info Modal */}
-      <Modal visible={isRoutineModalVisible} transparent animationType="fade">
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalIcon}>{routine.icon}</Text>
-            <Text style={styles.modalTitle}>Horario Habitual de {prefs.senderName}</Text>
-            <Text style={styles.modalStatus}>{routine.status}</Text>
-            <Text style={styles.modalDesc}>{routine.subtext}</Text>
-
-            <View style={styles.peaceNote}>
-              <Text style={styles.peaceNoteText}>
-                ❤️ "Si tardo en responderte, es por mis actividades del día, jamás porque me haya alejado de ti. Apenas tenga un respiro, te escribiré."
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              onPress={() => setIsRoutineModalVisible(false)}
-              style={styles.modalCloseBtn}
-            >
-              <Text style={styles.modalCloseBtnText}>Entendido, me quedo en paz ❤️</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
-    backgroundColor: '#F8FAFC',
+    padding: 18,
+    backgroundColor: '#000000', // Fondo negro absoluto OLED
+    minHeight: '100%',
   },
-  heading: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  subheading: {
-    fontSize: 13,
-    color: '#64748B',
-    marginTop: 4,
-    marginBottom: 16,
-    fontWeight: '500',
-    lineHeight: 18,
-  },
-  routineBanner: {
+  navBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0F9FF',
-    borderRadius: 20,
-    padding: 14,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#BAE6FD',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    paddingTop: 4,
   },
-  routineIcon: {
-    fontSize: 26,
-    marginRight: 12,
+  backBtn: {
+    padding: 4,
   },
-  routineTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0369A1',
+  backArrow: {
+    fontSize: 22,
+    color: '#E6D5C3',
+    fontWeight: '700',
   },
-  routineSub: {
-    fontSize: 11,
-    color: '#0284C7',
-    marginTop: 1,
-  },
-  routineArrow: {
+  navTitle: {
     fontSize: 16,
-    color: '#0284C7',
-    fontWeight: '800',
-    marginLeft: 6,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    flex: 1,
   },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    marginBottom: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-    overflow: 'hidden',
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-  },
-  triggerText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#E11D48',
-  },
-  answerPreview: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 2,
+  nightHint: {
+    fontSize: 11,
+    color: '#A1826E',
+    textAlign: 'center',
+    marginBottom: 20,
     fontWeight: '500',
   },
-  arrowIcon: {
-    fontSize: 12,
-    color: '#94A3B8',
-    marginLeft: 8,
-  },
-  cardBody: {
+  collapsedBlockDark: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#18120E',
+    borderRadius: 16,
     paddingHorizontal: 16,
-    paddingBottom: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#F8FAFC',
-    paddingTop: 12,
+    paddingVertical: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#2A1F18',
+    elevation: 2,
   },
-  explanationText: {
+  collapsedTriggerText: {
+    flex: 1,
     fontSize: 13,
-    lineHeight: 20,
-    color: '#334155',
+    fontWeight: '700',
+    color: '#E6D5C3', // Marfil suave
+    marginRight: 8,
+  },
+  arrowIconDark: {
+    fontSize: 14,
+    color: '#8C6F58',
+    fontWeight: '900',
+  },
+  expandedCardCream: {
+    backgroundColor: '#F5EBE1', // Fondo crema claro contrastante
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 12,
+    elevation: 6,
+    borderWidth: 1.5,
+    borderColor: '#EBDCCE',
+  },
+  expandedHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  expandedTriggerText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#E11D48',
+    marginRight: 8,
+  },
+  arrowIconCream: {
+    fontSize: 14,
+    color: '#5C3E2E',
+    fontWeight: '900',
+  },
+  expandedAnswerTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#2B1810',
+    marginBottom: 6,
+  },
+  expandedExplanation: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#42281D',
     fontStyle: 'italic',
     marginBottom: 12,
   },
   affirmationBox: {
-    backgroundColor: '#F0FDF4',
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#DCFCE7',
+    backgroundColor: '#FAF3ED',
+    borderRadius: 12,
+    padding: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: '#16A34A',
     marginBottom: 12,
   },
   affirmationLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#166534',
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#16A34A',
     marginBottom: 2,
+    letterSpacing: 0.5,
   },
   affirmationText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#15803D',
     fontWeight: '700',
   },
-  audioBtn: {
-    backgroundColor: '#0F172A',
-    paddingVertical: 10,
+  voiceBtnCoffee: {
+    backgroundColor: '#2B1810',
+    paddingVertical: 11,
     borderRadius: 14,
     alignItems: 'center',
   },
-  audioBtnActive: {
+  voiceBtnCoffeeActive: {
     backgroundColor: '#E11D48',
   },
-  audioBtnText: {
+  voiceBtnText: {
     color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '700',
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  modalCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 20,
-    alignItems: 'center',
-  },
-  modalIcon: {
-    fontSize: 40,
-    marginBottom: 8,
-  },
-  modalTitle: {
-    fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
-  },
-  modalStatus: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#0284C7',
-    marginTop: 4,
-  },
-  modalDesc: {
-    fontSize: 12,
-    color: '#64748B',
-    textAlign: 'center',
-    marginTop: 4,
-    lineHeight: 17,
-  },
-  peaceNote: {
-    backgroundColor: '#FFF1F2',
-    borderRadius: 16,
-    padding: 14,
-    marginVertical: 16,
-    borderWidth: 1,
-    borderColor: '#FFE4E6',
-  },
-  peaceNoteText: {
-    fontSize: 12,
-    color: '#9F1239',
-    fontStyle: 'italic',
-    lineHeight: 18,
-    textAlign: 'center',
-  },
-  modalCloseBtn: {
-    backgroundColor: '#E11D48',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 18,
-    width: '100%',
-    alignItems: 'center',
-  },
-  modalCloseBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-    fontSize: 13,
   },
 });

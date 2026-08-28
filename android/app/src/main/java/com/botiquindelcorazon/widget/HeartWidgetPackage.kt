@@ -10,7 +10,10 @@ import java.util.Collections
 
 class HeartWidgetPackage : ReactPackage {
     override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
-        return listOf(HeartWidgetModule(reactContext))
+        return listOf(
+            HeartWidgetModule(reactContext),
+            LocalStorageModule(reactContext)
+        )
     }
 
     override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<View, ReactShadowNode<*>>> {

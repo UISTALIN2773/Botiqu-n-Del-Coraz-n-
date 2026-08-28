@@ -13,31 +13,66 @@ import { storageService } from '../modules/storageService';
 import { audioEngine } from '../modules/audioEngine';
 import { HapticsService } from '../modules/hapticsService';
 
-export const TimeCapsulesScreen: React.FC = () => {
+interface TimeCapsulesScreenProps {
+  onClose?: () => void;
+}
+
+export const TimeCapsulesScreen: React.FC<TimeCapsulesScreenProps> = ({ onClose }) => {
   const [capsules, setCapsules] = useState<TimeCapsuleItem[]>(storageService.getTimeCapsules());
   const [selectedCapsule, setSelectedCapsule] = useState<TimeCapsuleItem | null>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isUnsealing, setIsUnsealing] = useState<boolean>(false);
 
-  const sealScaleAnim = useRef(new Animated.Value(1)).current;
-  const paperOpacityAnim = useRef(new Animated.Value(0)).current;
+  const sealCrackAnim = useRef(new Animated.Value(1)).current;
+  const letterFadeAnim = useRef(new Animated.Value(0)).current;
 
-  const handleOpenCapsule = (item: TimeCapsuleItem) => {
+  // Exact 3 envelopes as requested in Specification 5
+  const envelopes = [
+    {
+      id: 'capsule-1',
+      title: 'Sobre de Consuelo',
+      conditionText: '😢 Ábreme si estás llorando',
+      sealColor: '#DC2626', // Rojo rubí
+      sealEmoji: '❤️',
+      content: 'Sé que en este momento duele mucho. Llora todo lo que necesites, no te guardes nada. Pero prométeme que al terminar tomarás un vaso con agua. Recuerda que no estás sola/o. Te amo con toda mi alma.',
+      voiceFilename: 'voice_ansiedad_01.wav',
+    },
+    {
+      id: 'capsule-2',
+      title: 'Sobre de Fuerza',
+      conditionText: '🛡️ No puedes más',
+      sealColor: '#6B21A8', // Púrpura oscuro
+      sealEmoji: '⚔️',
+      content: 'Has superado el 100% de tus peores días del pasado. Eres más fuerte de lo que crees y más valiente de lo que imaginas. Descansa hoy, yo te sostengo la mano mentalmente.',
+      voiceFilename: 'voice_mal_dia_01.wav',
+    },
+    {
+      id: 'capsule-3',
+      title: 'Sobre de Amor y Paz',
+      conditionText: '🕊️ Si estás enojada/o conmigo',
+      sealColor: '#1E3A8A', // Azul noche
+      sealEmoji: '🕊️',
+      content: 'Somos un equipo contra el problema, no el uno contra el otro. Si me equivoqué o te lastimé, perdóname de corazón. Lo que más quiero en esta vida es verte en paz y feliz a mi lado.',
+      voiceFilename: 'voice_te_extrano_01.wav',
+    },
+  ];
+
+  const handleOpenEnvelope = (env: typeof envelopes[0]) => {
     HapticsService.triggerHeartbeat();
-    setSelectedCapsule(item);
+    setSelectedCapsule(env as any);
     setIsUnsealing(true);
-    sealScaleAnim.setValue(1);
-    paperOpacityAnim.setValue(0);
+    sealCrackAnim.setValue(1);
+    letterFadeAnim.setValue(0);
 
-    // Wax seal cracking animation
+    // Micro-animación de fractura de cera
     Animated.sequence([
-      Animated.timing(sealScaleAnim, { toValue: 1.3, duration: 250, useNativeDriver: true }),
-      Animated.timing(sealScaleAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
-      Animated.timing(paperOpacityAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+      Animated.timing(sealCrackAnim, { toValue: 1.35, duration: 220, useNativeDriver: true }),
+      Animated.timing(sealCrackAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
+      Animated.timing(letterFadeAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
     ]).start(() => {
       setIsUnsealing(false);
       HapticsService.triggerSuccessFeedback();
-      storageService.openTimeCapsule(item.id);
+      storageService.openTimeCapsule(env.id);
       setCapsules([...storageService.getTimeCapsules()]);
     });
   };
@@ -55,7 +90,7 @@ export const TimeCapsulesScreen: React.FC = () => {
     }
   };
 
-  const handleCloseModal = () => {
+  const handleClose = () => {
     audioEngine.stopAll();
     setIsPlaying(false);
     setSelectedCapsule(null);
@@ -63,71 +98,86 @@ export const TimeCapsulesScreen: React.FC = () => {
 
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.container}>
-      <Text style={styles.heading}>Cápsulas "Abrir Solo Si..." 💌</Text>
-      <Text style={styles.subheading}>
-        Sobres sellados con instrucciones especiales. Ábrelos únicamente cuando la situación lo amerite.
-      </Text>
-
-      <View style={styles.grid}>
-        {capsules.map((item) => (
-          <TouchableOpacity
-            key={item.id}
-            activeOpacity={0.85}
-            onPress={() => handleOpenCapsule(item)}
-            style={[styles.envelopeCard, item.isOpened && styles.envelopeCardOpened]}
-          >
-            <View style={styles.sealCircle}>
-              <Text style={styles.sealIcon}>{item.sealIcon}</Text>
-            </View>
-            <Text style={styles.envelopeTitle}>{item.title}</Text>
-            <Text style={styles.envelopeDesc} numberOfLines={2}>
-              {item.description}
-            </Text>
-            <View style={[styles.statusBadge, item.isOpened ? styles.badgeOpened : styles.badgeSealed]}>
-              <Text style={[styles.statusText, item.isOpened ? styles.textOpened : styles.textSealed]}>
-                {item.isOpened ? 'Sobre Abierto 📖' : 'Sello de Cera Cerrado 🔒'}
-              </Text>
-            </View>
+      {/* Cabecera: Barra superior minimalista con flecha (←), título "Time Capsules Screen" y opciones (⋮) */}
+      <View style={styles.navBar}>
+        {onClose && (
+          <TouchableOpacity onPress={onClose} style={styles.navBtn}>
+            <Text style={styles.navArrow}>←</Text>
           </TouchableOpacity>
-        ))}
+        )}
+        <Text style={styles.navTitle}>Time Capsules Screen</Text>
+        <TouchableOpacity style={styles.navBtn}>
+          <Text style={styles.navMenu}>⋮</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Letter Reading Modal with Wax Breaking Animation */}
+      <Text style={styles.subtitle}>
+        Sobres postales con textura de pergamino y sellos de cera en relieve 3D.
+      </Text>
+
+      {/* Listado Vertical de Sobres Postales */}
+      <View style={styles.envelopeList}>
+        {envelopes.map((env) => {
+          const isOpened = capsules.find((c) => c.id === env.id)?.isOpened;
+          return (
+            <TouchableOpacity
+              key={env.id}
+              activeOpacity={0.9}
+              onPress={() => handleOpenEnvelope(env)}
+              style={styles.envelopeCard}
+            >
+              {/* Bordes cosidos simulados */}
+              <View style={styles.stitchedBorder}>
+                {/* Sello de Lacre Central en relieve 3D */}
+                <View style={[styles.waxSeal3D, { backgroundColor: env.sealColor }]}>
+                  <View style={styles.waxSealInner}>
+                    <Text style={styles.waxEmoji}>{env.sealEmoji}</Text>
+                  </View>
+                </View>
+
+                {/* Condición Inferior */}
+                <Text style={styles.conditionTitle}>{env.conditionText}</Text>
+                <Text style={styles.envelopeStatus}>
+                  {isOpened ? 'Carta Desplegada • Toca para volver a leer' : 'Sello Intacto • Toca para romper cera'}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {/* Modal de Lectura a Pantalla Completa */}
       <Modal visible={!!selectedCapsule} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
           {isUnsealing ? (
-            /* Cracking Wax Animation */
-            <Animated.View style={[styles.crackingContainer, { transform: [{ scale: sealScaleAnim }] }]}>
-              <View style={styles.giantSeal}>
-                <Text style={styles.giantSealIcon}>{selectedCapsule?.sealIcon}</Text>
+            /* Animación de Fractura de Cera */
+            <Animated.View style={[styles.crackingBox, { transform: [{ scale: sealCrackAnim }] }]}>
+              <View style={[styles.waxSeal3D, { width: 80, height: 80, borderRadius: 40, backgroundColor: selectedCapsule?.sealColor || '#DC2626' }]}>
+                <Text style={{ fontSize: 36 }}>💥</Text>
               </View>
-              <Text style={styles.crackingText}>Rompiendo sello de cera...</Text>
+              <Text style={styles.crackingLabel}>Crujiendo sello de cera...</Text>
             </Animated.View>
           ) : (
-            /* Unfolded Letter Paper */
-            <Animated.View style={[styles.letterPaper, { opacity: paperOpacityAnim }]}>
-              <View style={styles.letterHeader}>
-                <Text style={styles.letterIcon}>{selectedCapsule?.sealIcon}</Text>
-                <Text style={styles.letterTitle}>{selectedCapsule?.title}</Text>
-                <TouchableOpacity onPress={handleCloseModal} style={styles.closeBtn}>
+            /* Carta en Pantalla Completa Desplegada */
+            <Animated.View style={[styles.fullLetterPaper, { opacity: letterFadeAnim }]}>
+              <View style={styles.letterHeaderRow}>
+                <Text style={styles.letterConditionHeader}>{selectedCapsule?.conditionText}</Text>
+                <TouchableOpacity onPress={handleClose} style={styles.closeBtn}>
                   <Text style={styles.closeBtnText}>✕</Text>
                 </TouchableOpacity>
               </View>
 
-              <ScrollView style={styles.letterBody} showsVerticalScrollIndicator={false}>
-                <Text style={styles.conditionText}>
-                  Condición: {selectedCapsule?.unlockCondition}
-                </Text>
-                <Text style={styles.letterContent}>"{selectedCapsule?.content}"</Text>
+              <ScrollView style={{ marginTop: 10 }} showsVerticalScrollIndicator={false}>
+                <Text style={styles.letterParagraph}>"{selectedCapsule?.content}"</Text>
 
                 {selectedCapsule?.voiceFilename && (
                   <TouchableOpacity
                     activeOpacity={0.85}
                     onPress={handlePlayVoice}
-                    style={[styles.voiceBtn, isPlaying && styles.voiceBtnActive]}
+                    style={[styles.playVoiceBtn, isPlaying && styles.playVoiceBtnActive]}
                   >
-                    <Text style={styles.voiceBtnText}>
-                      {isPlaying ? '⏸ Pausar Audio' : '▶ Escuchar mi nota de voz'}
+                    <Text style={styles.playVoiceBtnText}>
+                      {isPlaying ? '⏸ Pausar Nota de Voz' : '▶ Escuchar mi nota de voz grabada'}
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -142,177 +192,170 @@ export const TimeCapsulesScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
-    backgroundColor: '#F8FAFC',
+    padding: 18,
+    backgroundColor: '#FAF5EE', // Tono pergamino suave
+    minHeight: '100%',
   },
-  heading: {
+  navBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  navBtn: {
+    padding: 6,
+  },
+  navArrow: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#2B1810',
   },
-  subheading: {
-    fontSize: 13,
-    color: '#64748B',
-    marginTop: 4,
-    marginBottom: 16,
-    fontWeight: '500',
-    lineHeight: 18,
+  navTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#2B1810',
   },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+  navMenu: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#2B1810',
+  },
+  subtitle: {
+    fontSize: 12,
+    color: '#8C6F58',
+    textAlign: 'center',
+    marginBottom: 18,
+  },
+  envelopeList: {
+    alignItems: 'center',
   },
   envelopeCard: {
-    width: '48%',
-    backgroundColor: '#FFF7ED',
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 14,
+    width: '100%',
+    backgroundColor: '#F5EBE1', // Textura de papel pergamino
+    borderRadius: 22,
+    padding: 10,
+    marginBottom: 16,
+    elevation: 5,
+    shadowColor: '#2B1810',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#EBDCCE',
+  },
+  stitchedBorder: {
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: '#C4A48A', // Bordes cosidos simulados
+    borderRadius: 16,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-    elevation: 3,
   },
-  envelopeCardOpened: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E2E8F0',
-  },
-  sealCircle: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: '#EA580C',
+  waxSeal3D: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.4)',
+    marginBottom: 12,
   },
-  sealIcon: {
+  waxSealInner: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(255,255,255,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  waxEmoji: {
     fontSize: 20,
   },
-  envelopeTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0F172A',
+  conditionTitle: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#2B1810',
     textAlign: 'center',
     marginBottom: 4,
   },
-  envelopeDesc: {
+  envelopeStatus: {
     fontSize: 11,
-    color: '#64748B',
-    textAlign: 'center',
-    lineHeight: 15,
-    marginBottom: 10,
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
-  },
-  badgeSealed: {
-    backgroundColor: '#FFEDD5',
-  },
-  badgeOpened: {
-    backgroundColor: '#F1F5F9',
-  },
-  statusText: {
-    fontSize: 9,
-    fontWeight: '700',
-  },
-  textSealed: {
-    color: '#C2410C',
-  },
-  textOpened: {
-    color: '#64748B',
+    color: '#8C6F58',
+    fontWeight: '600',
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.65)',
+    backgroundColor: 'rgba(26, 15, 10, 0.8)',
     justifyContent: 'center',
     padding: 20,
   },
-  crackingContainer: {
+  crackingBox: {
     alignItems: 'center',
   },
-  giantSeal: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: '#DC2626',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 10,
-    borderWidth: 3,
-    borderColor: '#FCA5A5',
-  },
-  giantSealIcon: {
-    fontSize: 44,
-  },
-  crackingText: {
+  crackingLabel: {
     fontSize: 14,
     fontWeight: '800',
     color: '#FFFFFF',
     marginTop: 16,
   },
-  letterPaper: {
+  fullLetterPaper: {
     backgroundColor: '#FFFDF9',
-    borderRadius: 24,
-    padding: 22,
-    maxHeight: '80%',
-    borderWidth: 1,
-    borderColor: '#FEF3C7',
-    elevation: 10,
+    borderRadius: 26,
+    padding: 24,
+    maxHeight: '85%',
+    borderWidth: 2,
+    borderColor: '#EBDCCE',
+    elevation: 12,
   },
-  letterHeader: {
+  letterHeaderRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5EBE1',
+    paddingBottom: 10,
   },
-  letterIcon: {
-    fontSize: 24,
-    marginRight: 8,
-  },
-  letterTitle: {
+  letterConditionHeader: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#E11D48',
     flex: 1,
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0F172A',
   },
   closeBtn: {
     padding: 4,
   },
   closeBtnText: {
     fontSize: 16,
-    color: '#94A3B8',
-    fontWeight: '700',
+    fontWeight: '800',
+    color: '#8C6F58',
   },
-  letterBody: {
-    marginTop: 4,
-  },
-  conditionText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#EA580C',
-    marginBottom: 12,
-  },
-  letterContent: {
+  letterParagraph: {
     fontSize: 14,
-    lineHeight: 22,
-    color: '#334155',
+    lineHeight: 24,
+    color: '#332015',
     fontStyle: 'italic',
-    marginBottom: 20,
+    marginVertical: 14,
   },
-  voiceBtn: {
-    backgroundColor: '#E11D48',
+  playVoiceBtn: {
+    backgroundColor: '#2B1810',
     paddingVertical: 12,
     borderRadius: 16,
     alignItems: 'center',
-    marginBottom: 10,
+    marginTop: 10,
   },
-  voiceBtnActive: {
-    backgroundColor: '#881337',
+  playVoiceBtnActive: {
+    backgroundColor: '#E11D48',
   },
-  voiceBtnText: {
+  playVoiceBtnText: {
     color: '#FFFFFF',
     fontWeight: '800',
     fontSize: 13,

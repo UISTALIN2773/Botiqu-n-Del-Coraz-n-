@@ -1,3 +1,4 @@
+import { NativeModules } from 'react-native';
 import {
   EmotionalItem,
   INITIAL_MEMORIES,
@@ -20,14 +21,59 @@ class StorageService {
   private futureGoals: FutureGoalItem[] = [...INITIAL_FUTURE_GOALS];
   private capsuleUnlockedToday: boolean = false;
   private lastCapsuleDate: string = '';
+  private isInitialized: boolean = false;
 
-  private constructor() {}
+  private constructor() {
+    this.initFromDisk();
+  }
 
   public static getInstance(): StorageService {
     if (!StorageService.instance) {
       StorageService.instance = new StorageService();
     }
     return StorageService.instance;
+  }
+
+  /**
+   * Reads state from permanent local disk
+   */
+  public async initFromDisk(): Promise<void> {
+    if (this.isInitialized) return;
+    try {
+      if (NativeModules.LocalStorageModule) {
+        const savedData = await NativeModules.LocalStorageModule.loadData('botiquin_permanent_backup');
+        if (savedData) {
+          const parsed = JSON.parse(savedData);
+          if (parsed.preferences) this.preferences = { ...this.preferences, ...parsed.preferences };
+          if (Array.isArray(parsed.memories)) this.memories = parsed.memories;
+          if (Array.isArray(parsed.futureGoals)) this.futureGoals = parsed.futureGoals;
+          if (Array.isArray(parsed.timeCapsules)) this.timeCapsules = parsed.timeCapsules;
+        }
+      }
+    } catch (e) {
+      console.warn('[Storage] initFromDisk notice:', e);
+    } finally {
+      this.isInitialized = true;
+    }
+  }
+
+  /**
+   * Persists entire state to permanent local disk immediately
+   */
+  private async persistToDisk(): Promise<void> {
+    try {
+      if (NativeModules.LocalStorageModule) {
+        const json = JSON.stringify({
+          preferences: this.preferences,
+          memories: this.memories,
+          futureGoals: this.futureGoals,
+          timeCapsules: this.timeCapsules,
+        });
+        await NativeModules.LocalStorageModule.saveData('botiquin_permanent_backup', json);
+      }
+    } catch (e) {
+      console.warn('[Storage] persistToDisk notice:', e);
+    }
   }
 
   // --- MEMORIES ---
@@ -52,6 +98,7 @@ class StorageService {
       id: `custom-${Date.now()}`,
     };
     this.memories = [memory, ...this.memories];
+    this.persistToDisk();
     return memory;
   }
 
@@ -59,6 +106,7 @@ class StorageService {
     const item = this.memories.find((m) => m.id === id);
     if (item) {
       item.isFavorite = !item.isFavorite;
+      this.persistToDisk();
       return item.isFavorite;
     }
     return false;
@@ -78,6 +126,7 @@ class StorageService {
     const cap = this.timeCapsules.find((c) => c.id === id);
     if (cap) {
       cap.isOpened = true;
+      this.persistToDisk();
     }
     return cap;
   }
@@ -92,6 +141,7 @@ class StorageService {
     if (goal) {
       goal.isCompleted = !goal.isCompleted;
       goal.completedDate = goal.isCompleted ? '¡Cumplido juntos! ❤️' : undefined;
+      this.persistToDisk();
       return goal.isCompleted;
     }
     return false;
@@ -105,6 +155,7 @@ class StorageService {
       isCompleted: false,
     };
     this.futureGoals = [newGoal, ...this.futureGoals];
+    this.persistToDisk();
     return newGoal;
   }
 
@@ -118,6 +169,7 @@ class StorageService {
       ...this.preferences,
       ...newPrefs,
     };
+    this.persistToDisk();
     return this.preferences;
   }
 
@@ -176,6 +228,7 @@ class StorageService {
       if (Array.isArray(data.memories)) this.memories = data.memories;
       if (Array.isArray(data.futureGoals)) this.futureGoals = data.futureGoals;
       if (Array.isArray(data.timeCapsules)) this.timeCapsules = data.timeCapsules;
+      this.persistToDisk();
       return true;
     } catch (e) {
       console.warn('[Storage] Import failed:', e);

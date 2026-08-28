@@ -5,315 +5,311 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Animated,
 } from 'react-native';
-import { BreathingCircle } from '../components/BreathingCircle';
-import { audioEngine, AmbientTrackType } from '../modules/audioEngine';
+import { audioEngine } from '../modules/audioEngine';
 import { HapticsService } from '../modules/hapticsService';
 
-export const CalmZoneScreen: React.FC = () => {
-  const [activeSound, setActiveSound] = useState<AmbientTrackType | null>(null);
-  const [isLooping, setIsLooping] = useState<boolean>(true);
+interface CalmZoneScreenProps {
+  onClose?: () => void;
+}
+
+export const CalmZoneScreen: React.FC<CalmZoneScreenProps> = ({ onClose }) => {
+  const [selectedTimer, setSelectedTimer] = useState<number>(30); // 15, 30, 45, 60 min
+  const [isBreathingActive, setIsBreathingActive] = useState<boolean>(true);
+  const [breathPhase, setBreathPhase] = useState<'Inhala' | 'Sostén' | 'Exhala'>('Inhala');
   const [isPresenceActive, setIsPresenceActive] = useState<boolean>(false);
-  const [sleepTimer, setSleepTimer] = useState<number | null>(null);
-  const presenceInterval = useRef<NodeJS.Timeout | null>(null);
+  const [activeSound, setActiveSound] = useState<string>('rain');
 
-  const soundscapes: { id: AmbientTrackType; name: string; icon: string; desc: string }[] = [
-    { id: 'rain', name: 'Lluvia Relajante', icon: '🌧️', desc: 'Sonido suave de gotas para desconectar la mente' },
-    { id: 'lofi', name: 'Música Lo-Fi', icon: '☕', desc: 'Ritmos tranquilos para estudiar o meditar' },
-    { id: 'piano', name: 'Piano Acústico', icon: '🎹', desc: 'Melodías suaves para calmar la ansiedad' },
-    { id: 'waves', name: 'Olas de Mar', icon: '🌊', desc: 'Vaivén pacífico para conciliar el sueño' },
-  ];
+  // Animation values for the double concentric ring
+  const circleScaleAnim = useRef(new Animated.Value(1)).current;
 
-  const handleToggleSound = (id: AmbientTrackType) => {
-    HapticsService.triggerSoftFeedback();
-    if (activeSound === id) {
-      audioEngine.stopAll();
-      setActiveSound(null);
-    } else {
-      setActiveSound(id);
-      audioEngine.playAmbientOnly(id);
-    }
-  };
-
-  const handleTogglePresence = () => {
-    HapticsService.triggerSoftFeedback();
-    if (isPresenceActive) {
-      setIsPresenceActive(false);
-      if (presenceInterval.current) clearInterval(presenceInterval.current);
-    } else {
-      setIsPresenceActive(true);
-      presenceInterval.current = setInterval(() => {
-        HapticsService.triggerSoftFeedback();
-      }, 950);
-    }
-  };
-
-  const handleSetTimer = (minutes: number) => {
-    HapticsService.triggerSoftFeedback();
-    setSleepTimer(minutes);
-    setTimeout(() => {
-      audioEngine.stopAll();
-      setActiveSound(null);
-      setIsPresenceActive(false);
-      if (presenceInterval.current) clearInterval(presenceInterval.current);
-      setSleepTimer(null);
-    }, minutes * 60 * 1000);
-  };
-
+  // 4-4-4 Breathing Cycle Loop
   useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isBreathingActive) {
+      const runBreathingCycle = () => {
+        // Phase 1: Inhale 4s (expand)
+        setBreathPhase('Inhala');
+        HapticsService.triggerBreathingPulse();
+        Animated.timing(circleScaleAnim, {
+          toValue: 1.35,
+          duration: 4000,
+          useNativeDriver: true,
+        }).start(() => {
+          // Phase 2: Hold 4s (static)
+          setBreathPhase('Sostén');
+          HapticsService.triggerBreathingPulse();
+          timer = setTimeout(() => {
+            // Phase 3: Exhale 4s (contract)
+            setBreathPhase('Exhala');
+            HapticsService.triggerBreathingPulse();
+            Animated.timing(circleScaleAnim, {
+              toValue: 1.0,
+              duration: 4000,
+              useNativeDriver: true,
+            }).start(() => {
+              if (isBreathingActive) runBreathingCycle();
+            });
+          }, 4000);
+        });
+      };
+
+      runBreathingCycle();
+    }
+
     return () => {
-      audioEngine.stopAll();
-      if (presenceInterval.current) clearInterval(presenceInterval.current);
+      clearTimeout(timer);
+      circleScaleAnim.stopAnimation();
     };
-  }, []);
+  }, [isBreathingActive]);
+
+  const togglePresenceSimulator = () => {
+    if (isPresenceActive) {
+      HapticsService.stopPresence();
+      setIsPresenceActive(false);
+    } else {
+      HapticsService.startSafePresence(() => {
+        setIsPresenceActive(false);
+      });
+      setIsPresenceActive(true);
+      // Play soft continuous background sound
+      audioEngine.playDualTrack('voice_te_extrano_01.wav', activeSound as any);
+    }
+  };
 
   return (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContainer}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Zona de Calma & Sueño 🍃</Text>
-        <Text style={styles.subtitle}>
-          Un rincón silencioso para reducir el ritmo cardíaco y encontrar paz interior.
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.container}>
+      {/* Cabecera: Flecha (←), título centrado, selector de temporizador Sleep Timer */}
+      <View style={styles.navBar}>
+        {onClose ? (
+          <TouchableOpacity onPress={onClose} style={styles.navBtn}>
+            <Text style={styles.navArrow}>←</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 24 }} />
+        )}
+        <Text style={styles.navTitle}>Zona de Calma & Sueño</Text>
+
+        {/* Sleep Timer Selector */}
+        <View style={styles.timerPicker}>
+          <Text style={styles.timerIcon}>⏱️</Text>
+          <Text style={styles.timerVal}>{selectedTimer}m</Text>
+        </View>
+      </View>
+
+      {/* Selectores de Timer en Píldoras */}
+      <View style={styles.timerRow}>
+        <Text style={styles.timerLabel}>Sleep Timer:</Text>
+        {[15, 30, 45, 60].map((t) => (
+          <TouchableOpacity
+            key={t}
+            onPress={() => {
+              HapticsService.triggerSoftFeedback();
+              setSelectedTimer(t);
+            }}
+            style={[styles.timerPill, selectedTimer === t && styles.timerPillActive]}
+          >
+            <Text style={[styles.timerPillText, selectedTimer === t && styles.timerPillTextActive]}>
+              {t}m
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Guía de Respiración 4-4-4: Anillo concéntrico animado con borde doble */}
+      <View style={styles.breathingSection}>
+        <Animated.View
+          style={[
+            styles.outerConcentricRing,
+            { transform: [{ scale: circleScaleAnim }] },
+          ]}
+        >
+          <View style={styles.innerConcentricRing}>
+            <Text style={styles.circlePhaseText}>{breathPhase}</Text>
+            <Text style={styles.circleSubText}>4-4-4 / Breathing Circle</Text>
+          </View>
+        </Animated.View>
+      </View>
+
+      {/* Módulo "Dormir en mi Pecho" (Centro Inferior) */}
+      <View style={styles.chestSleepCard}>
+        <Text style={styles.chestSleepTitle}>Dormir en mi Pecho 🛌</Text>
+        <Text style={styles.chestSleepDesc}>
+          Simulador de presencia táctil. Coloca el teléfono sobre tu pecho o debajo de tu almohada para sentir el latido suave cada 950 ms.
         </Text>
-      </View>
 
-      {/* Interactive 4-4-4 Breathing Circle */}
-      <View style={styles.card}>
-        <BreathingCircle />
-      </View>
-
-      {/* Simulador de Presencia & Latido de Pecho */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Simulador de Presencia (Dormir en mi Pecho) ❤️</Text>
+        {/* Botón circular inferior con icono de ondas (〰️) */}
         <TouchableOpacity
           activeOpacity={0.85}
-          onPress={handleTogglePresence}
-          style={[styles.presenceCard, isPresenceActive && styles.presenceCardActive]}
+          onPress={togglePresenceSimulator}
+          style={[styles.waveBtn, isPresenceActive && styles.waveBtnActive]}
         >
-          <Text style={styles.presenceIcon}>{isPresenceActive ? '💓' : '🤍'}</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.presenceTitle}>
-              {isPresenceActive ? 'Latido Continuo Activo' : 'Activar Latido Suave'}
-            </Text>
-            <Text style={styles.presenceSub}>
-              Pulsaciones rítmicas sutiles para colocar el celular sobre tu pecho y dormir acompañado/a.
-            </Text>
-          </View>
+          <Text style={styles.waveIcon}>〰️</Text>
         </TouchableOpacity>
-      </View>
-
-      {/* Ambient Soundscapes Playlist */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Pistas de Fondo Continuas</Text>
-
-        {soundscapes.map((track) => {
-          const isPlaying = activeSound === track.id;
-          return (
-            <TouchableOpacity
-              key={track.id}
-              activeOpacity={0.85}
-              onPress={() => handleToggleSound(track.id)}
-              style={[styles.trackCard, isPlaying && styles.trackCardActive]}
-            >
-              <Text style={styles.trackIcon}>{track.icon}</Text>
-              <View style={styles.trackCol}>
-                <Text style={[styles.trackName, isPlaying && styles.trackNameActive]}>
-                  {track.name}
-                </Text>
-                <Text style={styles.trackDesc}>{track.desc}</Text>
-              </View>
-              <View style={[styles.playBadge, isPlaying && styles.playBadgeActive]}>
-                <Text style={[styles.playBadgeText, isPlaying && styles.playBadgeTextActive]}>
-                  {isPlaying ? 'Detener' : 'Reproducir'}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      {/* Temporizador de Apagado (Sleep Timer) */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Temporizador de Apagado (Sleep Timer) ⏱️</Text>
-        <View style={styles.timerRow}>
-          {[15, 30, 45, 60].map((mins) => (
-            <TouchableOpacity
-              key={mins}
-              onPress={() => handleSetTimer(mins)}
-              style={[styles.timerBtn, sleepTimer === mins && styles.timerBtnActive]}
-            >
-              <Text style={[styles.timerBtnText, sleepTimer === mins && styles.timerBtnTextActive]}>
-                {mins} min
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        {sleepTimer && (
-          <Text style={styles.timerNotice}>
-            La música y vibración se apagarán automáticamente en {sleepTimer} minutos.
-          </Text>
-        )}
+        <Text style={styles.waveBtnLabel}>
+          {isPresenceActive ? 'Latido Activo • Toca para pausar' : 'Iniciar Presencia'}
+        </Text>
       </View>
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  scrollContainer: {
-    padding: 20,
-    backgroundColor: '#F8FAFC',
+  container: {
+    padding: 18,
+    backgroundColor: '#FAF5EE',
+    minHeight: '100%',
   },
-  header: {
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  subtitle: {
-    fontSize: 13,
-    color: '#64748B',
-    marginTop: 4,
-    fontWeight: '500',
-  },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 16,
-    marginBottom: 20,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-  },
-  section: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#1E293B',
+  navBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 12,
   },
-  presenceCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF1F2',
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#FFE4E6',
+  navBtn: {
+    padding: 4,
   },
-  presenceCardActive: {
-    backgroundColor: '#FFE4E6',
-    borderColor: '#E11D48',
-  },
-  presenceIcon: {
-    fontSize: 32,
-    marginRight: 14,
-  },
-  presenceTitle: {
-    fontSize: 14,
+  navArrow: {
+    fontSize: 20,
     fontWeight: '800',
-    color: '#9F1239',
+    color: '#2B1810',
   },
-  presenceSub: {
-    fontSize: 11,
-    color: '#BE123C',
-    marginTop: 2,
-    lineHeight: 15,
+  navTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#2B1810',
   },
-  trackCard: {
+  timerPicker: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-  },
-  trackCardActive: {
-    borderColor: '#38BDF8',
-    backgroundColor: '#F0F9FF',
-  },
-  trackIcon: {
-    fontSize: 26,
-    marginRight: 12,
-  },
-  trackCol: {
-    flex: 1,
-  },
-  trackName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  trackNameActive: {
-    color: '#0284C7',
-  },
-  trackDesc: {
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  playBadge: {
+    backgroundColor: '#EBDCCE',
+    borderRadius: 14,
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    backgroundColor: '#F1F5F9',
+    paddingVertical: 4,
   },
-  playBadgeActive: {
-    backgroundColor: '#0284C7',
+  timerIcon: {
+    fontSize: 12,
+    marginRight: 4,
   },
-  playBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#475569',
-  },
-  playBadgeTextActive: {
-    color: '#FFFFFF',
+  timerVal: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#5C3E2E',
   },
   timerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  timerBtn: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    paddingVertical: 10,
     alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  timerLabel: {
+    fontSize: 11,
+    color: '#8C6F58',
+    fontWeight: '700',
+    marginRight: 8,
+  },
+  timerPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: '#F5EBE1',
     marginHorizontal: 3,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#EBDCCE',
   },
-  timerBtnActive: {
-    backgroundColor: '#0F172A',
-    borderColor: '#0F172A',
+  timerPillActive: {
+    backgroundColor: '#2B1810',
+    borderColor: '#2B1810',
   },
-  timerBtnText: {
-    fontSize: 12,
+  timerPillText: {
+    fontSize: 10,
     fontWeight: '700',
-    color: '#475569',
+    color: '#8C6F58',
   },
-  timerBtnTextActive: {
+  timerPillTextActive: {
     color: '#FFFFFF',
   },
-  timerNotice: {
+  breathingSection: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 200,
+    marginVertical: 10,
+  },
+  outerConcentricRing: {
+    width: 170,
+    height: 170,
+    borderRadius: 85,
+    borderWidth: 3,
+    borderColor: 'rgba(225, 29, 72, 0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFF8F2',
+  },
+  innerConcentricRing: {
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    borderWidth: 2,
+    borderColor: '#E11D48',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    elevation: 3,
+  },
+  circlePhaseText: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#2B1810',
+  },
+  circleSubText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#8C6F58',
+    marginTop: 3,
+  },
+  chestSleepCard: {
+    backgroundColor: '#1E140F', // Tarjeta oscura
+    borderRadius: 24,
+    padding: 20,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  chestSleepTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    marginBottom: 6,
+  },
+  chestSleepDesc: {
     fontSize: 11,
-    color: '#16A34A',
-    fontWeight: '600',
-    marginTop: 8,
+    lineHeight: 16,
+    color: '#E6D5C3',
     textAlign: 'center',
+    marginBottom: 16,
+  },
+  waveBtn: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#3D2314',
+    borderWidth: 2,
+    borderColor: '#E11D48',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 6,
+  },
+  waveBtnActive: {
+    backgroundColor: '#E11D48',
+    borderColor: '#FFFFFF',
+  },
+  waveIcon: {
+    fontSize: 24,
+  },
+  waveBtnLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#F5EBE1',
+    marginTop: 8,
   },
 });

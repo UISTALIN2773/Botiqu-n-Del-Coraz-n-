@@ -20,293 +20,225 @@ export const SettingsScreen: React.FC = () => {
   const [senderName, setSenderName] = useState<string>(currentPrefs.senderName);
   const [anniversaryDate, setAnniversaryDate] = useState<string>(currentPrefs.anniversaryDate);
   const [nextDateMeet, setNextDateMeet] = useState<string>(currentPrefs.nextDateMeet);
-  const [selectedColor, setSelectedColor] = useState<string>(currentPrefs.widgetColor);
   const [selectedTheme, setSelectedTheme] = useState<any>(currentPrefs.themeName);
-  const [hapticStrength, setHapticStrength] = useState<any>(currentPrefs.hapticStrength);
+
+  // Toggles tipo switch ON/OFF
+  const [autoReminderAnniversary, setAutoReminderAnniversary] = useState<boolean>(true);
+  const [autoReminderCountdown, setAutoReminderCountdown] = useState<boolean>(true);
+
+  // PIN Modal
+  const [isPinModalOpen, setIsPinModalOpen] = useState<boolean>(false);
   const [isPinEnabled, setIsPinEnabled] = useState<boolean>(currentPrefs.isPinEnabled);
   const [pinCode, setPinCode] = useState<string>(currentPrefs.pinCode);
-  const [saveMessage, setSaveMessage] = useState<string>('');
 
-  // Backup / Restore Modal State
-  const [isBackupModalVisible, setIsBackupModalVisible] = useState<boolean>(false);
-  const [backupText, setBackupText] = useState<string>('');
-  const [backupNotice, setBackupNotice] = useState<string>('');
+  // Feedback notice
+  const [saveNotice, setSaveNotice] = useState<string>('');
 
-  const themes = [
-    { key: 'minimal_clean', name: 'Minimal Clean', desc: 'Blanco puro y rojo cereza' },
-    { key: 'rose_gold', name: 'Rose Gold Romance', desc: 'Tonos rosados y dorados' },
-    { key: 'midnight_star', name: 'OLED Black 🌙', desc: 'Negro puro #000000 para no deslumbrar' },
-    { key: 'cozy_warmth', name: 'Cozy Warmth', desc: 'Ámbar cálido y papel artesanal' },
+  // 4 Temas Visuales Muestrarios Cuadrados
+  const themeSwatches = [
+    { key: 'minimal_clean', name: 'Minimal Clean', colors: ['#FFFFFF', '#E11D48'] },
+    { key: 'rose_gold', name: 'Rose Gold Romance', colors: ['#FFF1F2', '#FB7185'] },
+    { key: 'midnight_star', name: 'Midnight Star', colors: ['#1E1B4B', '#818CF8'] },
+    { key: 'oled_black', name: 'OLED Black', colors: ['#000000', '#F5EBE1'] },
   ];
 
-  const colorPalette = [
-    { name: 'Rojo Pasión', hex: '#E11D48' },
-    { name: 'Rosa Pastel', hex: '#FB7185' },
-    { name: 'Azul Calma', hex: '#0EA5E9' },
-    { name: 'Morado Neón', hex: '#8B5CF6' },
-    { name: 'Esmeralda', hex: '#10B981' },
-    { name: 'Ámbar Cálido', hex: '#F59E0B' },
-  ];
-
-  const handleSave = () => {
+  const handleSaveAll = () => {
     storageService.updatePreferences({
       partnerName,
       senderName,
       anniversaryDate,
       nextDateMeet,
-      widgetColor: selectedColor,
       themeName: selectedTheme,
-      hapticStrength,
       isPinEnabled,
       pinCode,
     });
 
     WidgetBridge.updateWidgetData();
     HapticsService.triggerSuccessFeedback();
-    setSaveMessage('¡Ajustes guardados y sincronizados con el Widget!');
-    setTimeout(() => setSaveMessage(''), 3500);
-  };
-
-  const handleOpenExport = () => {
-    const json = storageService.exportDataJSON();
-    setBackupText(json);
-    setBackupNotice('Copia y guarda este texto en tus notas para no perder nada si cambias de móvil.');
-    setIsBackupModalVisible(true);
-  };
-
-  const handleImport = () => {
-    if (!backupText.trim()) return;
-    const success = storageService.importDataJSON(backupText);
-    if (success) {
-      HapticsService.triggerSuccessFeedback();
-      setBackupNotice('¡Respaldo restaurado con éxito!');
-      setTimeout(() => setIsBackupModalVisible(false), 1500);
-    } else {
-      setBackupNotice('Error: Formato de respaldo JSON no válido.');
-    }
+    setSaveNotice('¡Configuración guardada y respaldada en el dispositivo!');
+    setTimeout(() => setSaveNotice(''), 3000);
   };
 
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.container}>
-      <Text style={styles.heading}>Personalización & Ajustes ⚙️</Text>
+      <Text style={styles.heading}>Ajustes & Personalización ⚙️</Text>
       <Text style={styles.subheading}>
-        Configura los nombres, fechas, estilo visual, respaldo y temas para tu pareja.
+        Configura los nombres de pareja, recordatorios automáticos, temas visuales y seguridad.
       </Text>
 
-      {/* 1. Nombres y Fechas de Pareja */}
+      {/* Sección Superior (Nombres y Fechas con conmutadores ON/OFF) */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Nombres & Fechas Especiales</Text>
+        <Text style={styles.cardSectionTitle}>Nombres de Pareja</Text>
 
-        <Text style={styles.label}>Nombre o Apodo de tu Pareja (quien recibe la app):</Text>
+        <Text style={styles.fieldLabel}>Nombre de tu Pareja (recibe la app):</Text>
         <TextInput
           value={partnerName}
           onChangeText={setPartnerName}
           style={styles.input}
-          placeholder="Ej: Mi Amor, Princesa, Cielo..."
-          placeholderTextColor="#94A3B8"
+          placeholder="Ej. Mi Amor, Cielo..."
+          placeholderTextColor="#A1826E"
         />
 
-        <Text style={styles.label}>Tu Nombre o Firma (quien graba y escribe):</Text>
+        <Text style={styles.fieldLabel}>Tu Nombre o Firma (quien graba y escribe):</Text>
         <TextInput
           value={senderName}
           onChangeText={setSenderName}
           style={styles.input}
-          placeholder="Ej: Tu novio/a, Tu persona favorita..."
-          placeholderTextColor="#94A3B8"
+          placeholder="Ej. Tu novio/a..."
+          placeholderTextColor="#A1826E"
         />
 
-        <Text style={styles.label}>Fecha de Aniversario (AAAA-MM-DD):</Text>
-        <TextInput
-          value={anniversaryDate}
-          onChangeText={setAnniversaryDate}
-          style={styles.input}
-          placeholder="2023-01-01"
-          placeholderTextColor="#94A3B8"
-        />
+        <View style={styles.divider} />
 
-        <Text style={styles.label}>Próxima Fecha de Encuentro / Cita (AAAA-MM-DD):</Text>
-        <TextInput
-          value={nextDateMeet}
-          onChangeText={setNextDateMeet}
-          style={styles.input}
-          placeholder="2026-09-15"
-          placeholderTextColor="#94A3B8"
-        />
+        <Text style={styles.cardSectionTitle}>Fechas Especiales & Recordatorios</Text>
+
+        {/* Aniversario Row con Switch */}
+        <View style={styles.dateToggleRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.fieldLabel}>Fecha de Aniversario (AAAA-MM-DD):</Text>
+            <TextInput
+              value={anniversaryDate}
+              onChangeText={setAnniversaryDate}
+              style={[styles.input, { marginTop: 2 }]}
+              placeholder="2023-01-01"
+              placeholderTextColor="#A1826E"
+            />
+          </View>
+          <View style={styles.switchWrapper}>
+            <Text style={styles.switchLabel}>Recordar</Text>
+            <Switch
+              value={autoReminderAnniversary}
+              onValueChange={setAutoReminderAnniversary}
+              thumbColor={autoReminderAnniversary ? '#E11D48' : '#CBD5E1'}
+            />
+          </View>
+        </View>
+
+        {/* Próxima Cita con Switch */}
+        <View style={styles.dateToggleRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.fieldLabel}>Próxima Cita / Reencuentro:</Text>
+            <TextInput
+              value={nextDateMeet}
+              onChangeText={setNextDateMeet}
+              style={[styles.input, { marginTop: 2 }]}
+              placeholder="2026-09-15"
+              placeholderTextColor="#A1826E"
+            />
+          </View>
+          <View style={styles.switchWrapper}>
+            <Text style={styles.switchLabel}>Countdown</Text>
+            <Switch
+              value={autoReminderCountdown}
+              onValueChange={setAutoReminderCountdown}
+              thumbColor={autoReminderCountdown ? '#E11D48' : '#CBD5E1'}
+            />
+          </View>
+        </View>
       </View>
 
-      {/* 2. Temas Visuales con OLED Black */}
+      {/* Selector de Temas Visuales (4 Muestrarios Cuadrados) */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Tema Visual & Modo Nocturno</Text>
-        <View style={styles.themesGrid}>
-          {themes.map((t) => {
+        <Text style={styles.cardSectionTitle}>Selector de Temas Visuales</Text>
+        <Text style={styles.swatchSub}>
+          Toca una paleta para cambiar la atmósfera de la aplicación:
+        </Text>
+
+        <View style={styles.swatchRow}>
+          {themeSwatches.map((t) => {
             const isSelected = selectedTheme === t.key;
             return (
               <TouchableOpacity
                 key={t.key}
-                activeOpacity={0.8}
+                activeOpacity={0.85}
                 onPress={() => {
                   HapticsService.triggerSoftFeedback();
                   setSelectedTheme(t.key as any);
                 }}
-                style={[styles.themeBox, isSelected && styles.themeBoxSelected]}
+                style={[styles.squareSwatch, isSelected && styles.squareSwatchSelected]}
               >
-                <Text style={[styles.themeName, isSelected && styles.themeNameSelected]}>
+                {/* Cuadricula bicolor */}
+                <View style={styles.swatchColorSplit}>
+                  <View style={[styles.splitHalf, { backgroundColor: t.colors[0] }]} />
+                  <View style={[styles.splitHalf, { backgroundColor: t.colors[1] }]} />
+                </View>
+                <Text style={[styles.swatchName, isSelected && styles.swatchNameSelected]}>
                   {t.name}
                 </Text>
-                <Text style={styles.themeDesc}>{t.desc}</Text>
               </TouchableOpacity>
             );
           })}
         </View>
       </View>
 
-      {/* 3. Color del Widget y Acento */}
+      {/* Módulo de Seguridad (Inferior): Botón ancho redondeado en tono crema: 🔒 PIN Lock */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Color de Acento del Widget</Text>
-        <View style={styles.colorsRow}>
-          {colorPalette.map((color) => {
-            const isSelected = selectedColor === color.hex;
-            return (
-              <TouchableOpacity
-                key={color.hex}
-                activeOpacity={0.8}
-                onPress={() => {
-                  HapticsService.triggerSoftFeedback();
-                  setSelectedColor(color.hex);
-                }}
-                style={[
-                  styles.colorBubble,
-                  { backgroundColor: color.hex },
-                  isSelected && styles.colorBubbleSelected,
-                ]}
-              />
-            );
-          })}
-        </View>
-      </View>
-
-      {/* 4. Intensidad Háptica con Protección Térmica */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Fuerza de Latido (Hápticos)</Text>
-        <Text style={styles.sublabel}>
-          Incluye apagado térmico automático a los 15 minutos en el simulador para cuidar la batería.
+        <Text style={styles.cardSectionTitle}>Seguridad & Privacidad</Text>
+        <Text style={styles.swatchSub}>
+          El Botiquín de Emergencia y Widget siempre estarán abiertos; el PIN solo protege el baúl íntimo.
         </Text>
-        <View style={styles.hapticRow}>
-          {(['suave', 'normal', 'fuerte', 'desactivado'] as const).map((level) => {
-            const isSelected = hapticStrength === level;
-            return (
-              <TouchableOpacity
-                key={level}
-                activeOpacity={0.8}
-                onPress={() => {
-                  setHapticStrength(level);
-                  storageService.updatePreferences({ hapticStrength: level });
-                  HapticsService.triggerHeartbeat();
-                }}
-                style={[styles.hapticBtn, isSelected && styles.hapticBtnActive]}
-              >
-                <Text style={[styles.hapticBtnText, isSelected && styles.hapticBtnTextActive]}>
-                  {level.charAt(0).toUpperCase() + level.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
 
-      {/* 5. Privacidad y Bloqueo PIN */}
-      <View style={styles.card}>
-        <View style={styles.pinToggleRow}>
-          <View style={{ flex: 1, marginRight: 10 }}>
-            <Text style={styles.cardTitle}>Bloqueo por PIN de Privacidad</Text>
-            <Text style={styles.sublabel}>
-              Protege el baúl y notas íntimas con clave de 4 dígitos.
-            </Text>
-          </View>
-          <Switch
-            value={isPinEnabled}
-            onValueChange={(val) => {
-              HapticsService.triggerSoftFeedback();
-              setIsPinEnabled(val);
-            }}
-            thumbColor={isPinEnabled ? selectedColor : '#CBD5E1'}
-          />
-        </View>
-
-        {isPinEnabled && (
-          <View style={{ marginTop: 8 }}>
-            <Text style={styles.label}>Código PIN de 4 dígitos:</Text>
-            <TextInput
-              value={pinCode}
-              onChangeText={setPinCode}
-              keyboardType="numeric"
-              maxLength={4}
-              secureTextEntry
-              style={styles.input}
-              placeholder="1234"
-              placeholderTextColor="#94A3B8"
-            />
-          </View>
-        )}
-      </View>
-
-      {/* 6. Respaldo y Exportación Local */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Respaldo de Recuerdos (.json) 💾</Text>
-        <Text style={styles.sublabel}>
-          Exporta o restaura tus cartas y metas para no perder nada al cambiar de celular.
-        </Text>
         <TouchableOpacity
           activeOpacity={0.85}
-          onPress={handleOpenExport}
-          style={styles.backupBtn}
+          onPress={() => setIsPinModalOpen(true)}
+          style={styles.pinLockBtnCream}
         >
-          <Text style={styles.backupBtnText}>Exportar o Restaurar Respaldo</Text>
+          <Text style={styles.pinLockBtnIcon}>🔒</Text>
+          <View style={{ flex: 1, marginLeft: 10 }}>
+            <Text style={styles.pinLockBtnText}>PIN Lock</Text>
+            <Text style={styles.pinLockBtnSub}>
+              {isPinEnabled ? 'Activado (Código de 4 dígitos configurado)' : 'Desactivado • Toca para proteger'}
+            </Text>
+          </View>
+          <Text style={styles.pinArrow}>➔</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Save Button */}
+      {/* Botón Guardar */}
       <TouchableOpacity
         activeOpacity={0.85}
-        onPress={handleSave}
-        style={[styles.saveBtn, { backgroundColor: selectedColor }]}
+        onPress={handleSaveAll}
+        style={styles.saveMainBtn}
       >
-        <Text style={styles.saveBtnText}>Guardar y Sincronizar Cambios</Text>
+        <Text style={styles.saveMainBtnText}>Guardar y Aplicar Cambios</Text>
       </TouchableOpacity>
 
-      {saveMessage ? <Text style={styles.saveMsgText}>{saveMessage}</Text> : null}
+      {saveNotice ? <Text style={styles.noticeText}>{saveNotice}</Text> : null}
 
-      {/* Backup Modal */}
-      <Modal visible={isBackupModalVisible} transparent animationType="slide">
+      {/* Modal PIN Lock */}
+      <Modal visible={isPinModalOpen} transparent animationType="slide">
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Copia de Seguridad de Recuerdos</Text>
-            <Text style={styles.modalSub}>{backupNotice}</Text>
+          <View style={styles.modalPaper}>
+            <Text style={styles.modalTitle}>Configurar Clave PIN de 4 Dígitos 🔒</Text>
 
-            <TextInput
-              value={backupText}
-              onChangeText={setBackupText}
-              multiline
-              numberOfLines={8}
-              style={styles.backupTextArea}
-              placeholder="Pega aquí tu código JSON de respaldo..."
-              placeholderTextColor="#94A3B8"
-            />
-
-            <View style={styles.modalBtnRow}>
-              <TouchableOpacity
-                onPress={() => setIsBackupModalVisible(false)}
-                style={styles.modalCancelBtn}
-              >
-                <Text style={styles.modalCancelText}>Cerrar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleImport}
-                style={styles.modalImportBtn}
-              >
-                <Text style={styles.modalImportText}>Restaurar Datos</Text>
-              </TouchableOpacity>
+            <View style={styles.pinSwitchRow}>
+              <Text style={styles.fieldLabel}>Habilitar bloqueo de seguridad:</Text>
+              <Switch
+                value={isPinEnabled}
+                onValueChange={setIsPinEnabled}
+                thumbColor={isPinEnabled ? '#E11D48' : '#CBD5E1'}
+              />
             </View>
+
+            {isPinEnabled && (
+              <TextInput
+                value={pinCode}
+                onChangeText={setPinCode}
+                keyboardType="numeric"
+                maxLength={4}
+                secureTextEntry
+                placeholder="1234"
+                placeholderTextColor="#A1826E"
+                style={styles.pinCodeInput}
+              />
+            )}
+
+            <TouchableOpacity
+              onPress={() => setIsPinModalOpen(false)}
+              style={styles.modalConfirmBtn}
+            >
+              <Text style={styles.modalConfirmText}>Confirmar</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -316,227 +248,215 @@ export const SettingsScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
-    backgroundColor: '#F8FAFC',
+    padding: 18,
+    backgroundColor: '#FAF5EE',
   },
   heading: {
     fontSize: 20,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontWeight: '900',
+    color: '#2B1810',
   },
   subheading: {
-    fontSize: 13,
-    color: '#64748B',
+    fontSize: 12,
+    color: '#8C6F58',
     marginTop: 4,
     marginBottom: 16,
-    fontWeight: '500',
+    lineHeight: 17,
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 22,
     padding: 16,
     marginBottom: 16,
     elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: '#EBDCCE',
   },
-  cardTitle: {
+  cardSectionTitle: {
     fontSize: 14,
-    fontWeight: '800',
-    color: '#1E293B',
-    marginBottom: 6,
+    fontWeight: '900',
+    color: '#2B1810',
+    marginBottom: 8,
   },
-  label: {
+  fieldLabel: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#475569',
+    fontWeight: '700',
+    color: '#5C3E2E',
     marginTop: 6,
-    marginBottom: 4,
-  },
-  sublabel: {
-    fontSize: 11,
-    color: '#64748B',
-    lineHeight: 15,
+    marginBottom: 2,
   },
   input: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FAF5EE',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 14,
+    borderColor: '#EBDCCE',
+    borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    fontSize: 13,
-    color: '#0F172A',
-  },
-  themesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginTop: 6,
-  },
-  themeBox: {
-    width: '48%',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 14,
-    padding: 10,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  themeBoxSelected: {
-    backgroundColor: '#0F172A',
-    borderColor: '#0F172A',
-  },
-  themeName: {
     fontSize: 12,
+    color: '#2B1810',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#F5EBE1',
+    marginVertical: 14,
+  },
+  dateToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  switchWrapper: {
+    alignItems: 'center',
+    marginLeft: 12,
+  },
+  switchLabel: {
+    fontSize: 9,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#8C6F58',
+    marginBottom: 2,
   },
-  themeNameSelected: {
-    color: '#FFFFFF',
+  swatchSub: {
+    fontSize: 11,
+    color: '#8C6F58',
+    marginBottom: 12,
   },
-  themeDesc: {
-    fontSize: 10,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  colorsRow: {
+  swatchRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 6,
   },
-  colorBubble: {
+  squareSwatch: {
+    width: '23%',
+    backgroundColor: '#FAF5EE',
+    borderRadius: 14,
+    padding: 6,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#EBDCCE',
+  },
+  squareSwatchSelected: {
+    borderColor: '#E11D48',
+    backgroundColor: '#FFF1F2',
+    transform: [{ scale: 1.05 }],
+  },
+  swatchColorSplit: {
     width: 38,
     height: 38,
-    borderRadius: 19,
-  },
-  colorBubbleSelected: {
-    borderWidth: 3,
-    borderColor: '#0F172A',
-    transform: [{ scale: 1.15 }],
-  },
-  hapticRow: {
+    borderRadius: 10,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    marginBottom: 6,
+  },
+  splitHalf: {
+    flex: 1,
+    height: '100%',
+  },
+  swatchName: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#5C3E2E',
+    textAlign: 'center',
+  },
+  swatchNameSelected: {
+    color: '#E11D48',
+  },
+  pinLockBtnCream: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5EBE1', // Tono crema
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: '#EBDCCE',
     marginTop: 6,
   },
-  hapticBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    marginHorizontal: 2,
+  pinLockBtnIcon: {
+    fontSize: 24,
   },
-  hapticBtnActive: {
-    backgroundColor: '#0F172A',
-  },
-  hapticBtnText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#64748B',
-  },
-  hapticBtnTextActive: {
-    color: '#FFFFFF',
-  },
-  pinToggleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  backupBtn: {
-    backgroundColor: '#F1F5F9',
-    borderRadius: 14,
-    paddingVertical: 10,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  backupBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#334155',
-  },
-  saveBtn: {
-    width: '100%',
-    paddingVertical: 14,
-    borderRadius: 20,
-    alignItems: 'center',
-    marginTop: 8,
-    elevation: 3,
-  },
-  saveBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '800',
+  pinLockBtnText: {
     fontSize: 14,
+    fontWeight: '900',
+    color: '#2B1810',
   },
-  saveMsgText: {
+  pinLockBtnSub: {
+    fontSize: 10,
+    color: '#8C6F58',
+    marginTop: 1,
+  },
+  pinArrow: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#8C6F58',
+  },
+  saveMainBtn: {
+    backgroundColor: '#2B1810',
+    borderRadius: 20,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 6,
+    elevation: 4,
+  },
+  saveMainBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 13,
+  },
+  noticeText: {
     fontSize: 12,
+    fontWeight: '800',
     color: '#16A34A',
-    fontWeight: '700',
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: 10,
   },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
-    padding: 20,
+    padding: 24,
   },
-  modalCard: {
+  modalPaper: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    padding: 20,
+    padding: 22,
+    borderWidth: 1.5,
+    borderColor: '#EBDCCE',
   },
   modalTitle: {
     fontSize: 16,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontWeight: '900',
+    color: '#2B1810',
+    marginBottom: 16,
+    textAlign: 'center',
   },
-  modalSub: {
-    fontSize: 12,
-    color: '#64748B',
-    marginVertical: 6,
-    lineHeight: 16,
-  },
-  backupTextArea: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 14,
-    padding: 12,
-    fontSize: 11,
-    height: 140,
-    textAlignVertical: 'top',
-    fontFamily: 'monospace',
-  },
-  modalBtnRow: {
+  pinSwitchRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 14,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  modalCancelBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    marginRight: 8,
-  },
-  modalCancelText: {
-    color: '#64748B',
-    fontWeight: '700',
-    fontSize: 13,
-  },
-  modalImportBtn: {
-    backgroundColor: '#E11D48',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+  pinCodeInput: {
+    backgroundColor: '#FAF5EE',
     borderRadius: 14,
+    paddingVertical: 10,
+    fontSize: 24,
+    textAlign: 'center',
+    letterSpacing: 8,
+    borderWidth: 1.5,
+    borderColor: '#EBDCCE',
+    color: '#2B1810',
+    fontWeight: '900',
+    marginBottom: 16,
   },
-  modalImportText: {
+  modalConfirmBtn: {
+    backgroundColor: '#E11D48',
+    paddingVertical: 12,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  modalConfirmText: {
     color: '#FFFFFF',
-    fontWeight: '700',
+    fontWeight: '800',
     fontSize: 13,
   },
 });
