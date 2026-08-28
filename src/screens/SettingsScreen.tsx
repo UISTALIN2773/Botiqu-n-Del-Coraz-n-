@@ -18,11 +18,20 @@ export const SettingsScreen: React.FC = () => {
   const [partnerName, setPartnerName] = useState<string>(currentPrefs.partnerName);
   const [senderName, setSenderName] = useState<string>(currentPrefs.senderName);
   const [anniversaryDate, setAnniversaryDate] = useState<string>(currentPrefs.anniversaryDate);
+  const [nextDateMeet, setNextDateMeet] = useState<string>(currentPrefs.nextDateMeet);
   const [selectedColor, setSelectedColor] = useState<string>(currentPrefs.widgetColor);
+  const [selectedTheme, setSelectedTheme] = useState<any>(currentPrefs.themeName);
   const [hapticStrength, setHapticStrength] = useState<any>(currentPrefs.hapticStrength);
   const [isPinEnabled, setIsPinEnabled] = useState<boolean>(currentPrefs.isPinEnabled);
   const [pinCode, setPinCode] = useState<string>(currentPrefs.pinCode);
   const [saveMessage, setSaveMessage] = useState<string>('');
+
+  const themes = [
+    { key: 'minimal_clean', name: 'Minimal Clean', desc: 'Blanco puro y rojo cereza' },
+    { key: 'rose_gold', name: 'Rose Gold Romance', desc: 'Tonos rosados y dorados' },
+    { key: 'midnight_star', name: 'Midnight Star', desc: 'Índigo oscuro nocturno' },
+    { key: 'cozy_warmth', name: 'Cozy Warmth', desc: 'Ámbar cálido y papel artesanal' },
+  ];
 
   const colorPalette = [
     { name: 'Rojo Pasión', hex: '#E11D48' },
@@ -38,7 +47,9 @@ export const SettingsScreen: React.FC = () => {
       partnerName,
       senderName,
       anniversaryDate,
+      nextDateMeet,
       widgetColor: selectedColor,
+      themeName: selectedTheme,
       hapticStrength,
       isPinEnabled,
       pinCode,
@@ -54,23 +65,23 @@ export const SettingsScreen: React.FC = () => {
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.container}>
       <Text style={styles.heading}>Personalización & Ajustes ⚙️</Text>
       <Text style={styles.subheading}>
-        Configura los nombres, fechas y el estilo visual para ti y tu pareja.
+        Configura los nombres, fechas, estilo visual y audios para tu pareja.
       </Text>
 
-      {/* 1. Nombres y Relación */}
+      {/* 1. Nombres y Fechas de Pareja */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Nombres & Saludo</Text>
+        <Text style={styles.cardTitle}>Nombres & Fechas Especiales</Text>
 
-        <Text style={styles.label}>Nombre o Apodo de tu Pareja (quien recibe):</Text>
+        <Text style={styles.label}>Nombre o Apodo de tu Pareja (quien recibe la app):</Text>
         <TextInput
           value={partnerName}
           onChangeText={setPartnerName}
           style={styles.input}
-          placeholder="Ej: Mi Amor, Princesa, Osito..."
+          placeholder="Ej: Mi Amor, Princesa, Cielo..."
           placeholderTextColor="#94A3B8"
         />
 
-        <Text style={styles.label}>Tu Nombre o Firma (quien graba/escribe):</Text>
+        <Text style={styles.label}>Tu Nombre o Firma (quien graba y escribe):</Text>
         <TextInput
           value={senderName}
           onChangeText={setSenderName}
@@ -79,7 +90,7 @@ export const SettingsScreen: React.FC = () => {
           placeholderTextColor="#94A3B8"
         />
 
-        <Text style={styles.label}>Fecha de Inicio de Relación (AAAA-MM-DD):</Text>
+        <Text style={styles.label}>Fecha de Aniversario (AAAA-MM-DD):</Text>
         <TextInput
           value={anniversaryDate}
           onChangeText={setAnniversaryDate}
@@ -87,13 +98,46 @@ export const SettingsScreen: React.FC = () => {
           placeholder="2023-01-01"
           placeholderTextColor="#94A3B8"
         />
+
+        <Text style={styles.label}>Próxima Fecha de Encuentro / Cita (AAAA-MM-DD):</Text>
+        <TextInput
+          value={nextDateMeet}
+          onChangeText={setNextDateMeet}
+          style={styles.input}
+          placeholder="2026-09-15"
+          placeholderTextColor="#94A3B8"
+        />
       </View>
 
-      {/* 2. Personalización del Widget */}
+      {/* 2. Temas Visuales */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Color y Estilo del Corazón</Text>
-        <Text style={styles.sublabel}>Selecciona el color de acento del Widget y la App:</Text>
+        <Text style={styles.cardTitle}>Tema Visual de la Aplicación</Text>
+        <View style={styles.themesGrid}>
+          {themes.map((t) => {
+            const isSelected = selectedTheme === t.key;
+            return (
+              <TouchableOpacity
+                key={t.key}
+                activeOpacity={0.8}
+                onPress={() => {
+                  HapticsService.triggerSoftFeedback();
+                  setSelectedTheme(t.key as any);
+                }}
+                style={[styles.themeBox, isSelected && styles.themeBoxSelected]}
+              >
+                <Text style={[styles.themeName, isSelected && styles.themeNameSelected]}>
+                  {t.name}
+                </Text>
+                <Text style={styles.themeDesc}>{t.desc}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
 
+      {/* 3. Color del Widget y Acento */}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Color de Acento del Widget</Text>
         <View style={styles.colorsRow}>
           {colorPalette.map((color) => {
             const isSelected = selectedColor === color.hex;
@@ -116,11 +160,9 @@ export const SettingsScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* 3. Fuerza de Vibración Háptica */}
+      {/* 4. Intensidad Háptica */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Fuerza de Latido (Hápticos)</Text>
-        <Text style={styles.sublabel}>Ajusta la intensidad de vibración "Lub-Dub":</Text>
-
         <View style={styles.hapticRow}>
           {(['suave', 'normal', 'fuerte', 'desactivado'] as const).map((level) => {
             const isSelected = hapticStrength === level;
@@ -144,13 +186,13 @@ export const SettingsScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* 4. Privacidad y Seguridad (PIN Opcional) */}
+      {/* 5. Privacidad y Bloqueo PIN */}
       <View style={styles.card}>
         <View style={styles.pinToggleRow}>
-          <View style={styles.pinCol}>
+          <View style={{ flex: 1, marginRight: 10 }}>
             <Text style={styles.cardTitle}>Bloqueo por PIN de Privacidad</Text>
             <Text style={styles.sublabel}>
-              Protege el baúl de cartas y recuerdos con clave (el widget sigue abriendo en emergencias).
+              Protege el baúl y notas íntimas con clave de 4 dígitos. El widget seguirá disponible para emergencias.
             </Text>
           </View>
           <Switch
@@ -159,12 +201,12 @@ export const SettingsScreen: React.FC = () => {
               HapticsService.triggerSoftFeedback();
               setIsPinEnabled(val);
             }}
-            thumbColor={isPinEnabled ? '#E11D48' : '#CBD5E1'}
+            thumbColor={isPinEnabled ? selectedColor : '#CBD5E1'}
           />
         </View>
 
         {isPinEnabled && (
-          <View style={{ marginTop: 10 }}>
+          <View style={{ marginTop: 8 }}>
             <Text style={styles.label}>Código PIN de 4 dígitos:</Text>
             <TextInput
               value={pinCode}
@@ -191,13 +233,13 @@ export const SettingsScreen: React.FC = () => {
 
       {saveMessage ? <Text style={styles.saveMsgText}>{saveMessage}</Text> : null}
 
-      {/* Offline Status Badge */}
-      <View style={styles.offlineCard}>
-        <Text style={styles.offlineIcon}>🔒</Text>
+      {/* Audio & WhatsApp Guide Card */}
+      <View style={styles.guideCard}>
+        <Text style={styles.guideIcon}>🎙️</Text>
         <View style={{ flex: 1 }}>
-          <Text style={styles.offlineTitle}>100% Offline y Privado</Text>
-          <Text style={styles.offlineSub}>
-            Todos los audios, recuerdos y textos se guardan estrictamente en tu dispositivo. Cero servidores externos.
+          <Text style={styles.guideTitle}>Audios y Notas de WhatsApp</Text>
+          <Text style={styles.guideText}>
+            Puedes añadir cartas y audios desde el Baúl de Recuerdos con el botón "+ Crear". Las notas de voz que envíes por WhatsApp también pueden guardarse en la memoria del teléfono para reproducirse sin internet.
           </Text>
         </View>
       </View>
@@ -236,33 +278,64 @@ const styles = StyleSheet.create({
     borderColor: '#F1F5F9',
   },
   cardTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
     color: '#1E293B',
     marginBottom: 6,
   },
   label: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: '#475569',
-    marginTop: 8,
+    marginTop: 6,
     marginBottom: 4,
   },
   sublabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748B',
-    marginBottom: 10,
-    lineHeight: 16,
+    lineHeight: 15,
   },
   input: {
     backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     fontSize: 13,
     color: '#0F172A',
+  },
+  themesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  themeBox: {
+    width: '48%',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 10,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  themeBoxSelected: {
+    backgroundColor: '#0F172A',
+    borderColor: '#0F172A',
+  },
+  themeName: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  themeNameSelected: {
+    color: '#FFFFFF',
+  },
+  themeDesc: {
+    fontSize: 10,
+    color: '#64748B',
+    marginTop: 2,
   },
   colorsRow: {
     flexDirection: 'row',
@@ -270,9 +343,9 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   colorBubble: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
   },
   colorBubbleSelected: {
     borderWidth: 3,
@@ -287,16 +360,16 @@ const styles = StyleSheet.create({
   hapticBtn: {
     flex: 1,
     paddingVertical: 8,
-    borderRadius: 14,
+    borderRadius: 12,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
-    marginHorizontal: 3,
+    marginHorizontal: 2,
   },
   hapticBtnActive: {
     backgroundColor: '#0F172A',
   },
   hapticBtnText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     color: '#64748B',
   },
@@ -307,10 +380,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  pinCol: {
-    flex: 1,
-    marginRight: 10,
   },
   saveBtn: {
     width: '100%',
@@ -332,25 +401,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
   },
-  offlineCard: {
+  guideCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F1F5F9',
     borderRadius: 18,
     padding: 14,
-    marginTop: 20,
-    marginBottom: 20,
+    marginTop: 16,
+    marginBottom: 24,
   },
-  offlineIcon: {
-    fontSize: 24,
+  guideIcon: {
+    fontSize: 26,
     marginRight: 12,
   },
-  offlineTitle: {
+  guideTitle: {
     fontSize: 12,
     fontWeight: '800',
     color: '#334155',
   },
-  offlineSub: {
+  guideText: {
     fontSize: 11,
     color: '#64748B',
     marginTop: 2,

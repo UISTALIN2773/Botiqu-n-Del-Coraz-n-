@@ -26,29 +26,44 @@ class HeartWidgetProvider : AppWidgetProvider() {
             appWidgetId: Int
         ) {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            val quote = prefs.getString(KEY_QUOTE, "Toca el corazón si necesitas un abrazo hoy.")
-            val author = prefs.getString(KEY_AUTHOR, "— Tu persona favorita")
+            val quote = prefs.getString(KEY_QUOTE, "Tócame si me extrañas o tienes ansiedad.")
+            val author = prefs.getString(KEY_AUTHOR, "Mi Amor • Siempre contigo ❤️")
             val mood = prefs.getString(KEY_MOOD, "ansiedad")
 
             val views = RemoteViews(context.packageName, R.layout.heart_widget_layout)
             views.setTextViewText(R.id.widget_quote_text, quote)
             views.setTextViewText(R.id.widget_author_text, author)
 
-            // Intent to open app directly with Deep Link
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("botiquin://open?mood=$mood")).apply {
+            // Intent 1: Tap anywhere -> Opens Floating Quick Popup Modal
+            val popupIntent = Intent(Intent.ACTION_VIEW, Uri.parse("botiquin://open?mood=$mood")).apply {
                 setClass(context, MainActivity::class.java)
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             }
 
-            val pendingIntent = PendingIntent.getActivity(
+            val popupPendingIntent = PendingIntent.getActivity(
                 context,
-                0,
-                intent,
+                1001,
+                popupIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
-            views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
-            views.setOnClickPendingIntent(R.id.widget_heart_icon, pendingIntent)
+            // Intent 2: Tap Direct Play Button -> Opens and starts playing Voice Note immediately
+            val playIntent = Intent(Intent.ACTION_VIEW, Uri.parse("botiquin://open?mood=$mood&autoplay=true")).apply {
+                setClass(context, MainActivity::class.java)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+
+            val playPendingIntent = PendingIntent.getActivity(
+                context,
+                1002,
+                playIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            views.setOnClickPendingIntent(R.id.widget_root, popupPendingIntent)
+            views.setOnClickPendingIntent(R.id.widget_photo, popupPendingIntent)
+            views.setOnClickPendingIntent(R.id.widget_heart_icon, popupPendingIntent)
+            views.setOnClickPendingIntent(R.id.widget_play_btn, playPendingIntent)
 
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }

@@ -3,15 +3,21 @@ import {
   INITIAL_MEMORIES,
   UserPreferences,
   DEFAULT_PREFERENCES,
+  DoubtItem,
+  DOUBT_ITEMS,
+  TimeCapsuleItem,
+  TIME_CAPSULES,
+  FutureGoalItem,
+  INITIAL_FUTURE_GOALS,
 } from '../config/database';
 
-/**
- * Local in-memory and state persistence manager with fast JSON sync
- */
 class StorageService {
   private static instance: StorageService;
   private memories: EmotionalItem[] = [...INITIAL_MEMORIES];
   private preferences: UserPreferences = { ...DEFAULT_PREFERENCES };
+  private doubtItems: DoubtItem[] = [...DOUBT_ITEMS];
+  private timeCapsules: TimeCapsuleItem[] = [...TIME_CAPSULES];
+  private futureGoals: FutureGoalItem[] = [...INITIAL_FUTURE_GOALS];
   private capsuleUnlockedToday: boolean = false;
   private lastCapsuleDate: string = '';
 
@@ -24,7 +30,7 @@ class StorageService {
     return StorageService.instance;
   }
 
-  // --- MEMORIES MANAGEMENT ---
+  // --- MEMORIES ---
   public getMemories(): EmotionalItem[] {
     return this.memories;
   }
@@ -58,13 +64,51 @@ class StorageService {
     return false;
   }
 
-  public deleteMemory(id: string): boolean {
-    const prevCount = this.memories.length;
-    this.memories = this.memories.filter((m) => m.id !== id);
-    return this.memories.length < prevCount;
+  // --- DOUBTS & INSECURITIES ---
+  public getDoubtItems(): DoubtItem[] {
+    return this.doubtItems;
   }
 
-  // --- PREFERENCES MANAGEMENT ---
+  // --- TIME CAPSULES ---
+  public getTimeCapsules(): TimeCapsuleItem[] {
+    return this.timeCapsules;
+  }
+
+  public openTimeCapsule(id: string): TimeCapsuleItem | undefined {
+    const cap = this.timeCapsules.find((c) => c.id === id);
+    if (cap) {
+      cap.isOpened = true;
+    }
+    return cap;
+  }
+
+  // --- FUTURE GOALS ---
+  public getFutureGoals(): FutureGoalItem[] {
+    return this.futureGoals;
+  }
+
+  public toggleGoal(id: string): boolean {
+    const goal = this.futureGoals.find((g) => g.id === id);
+    if (goal) {
+      goal.isCompleted = !goal.isCompleted;
+      goal.completedDate = goal.isCompleted ? '¡Cumplido juntos! ❤️' : undefined;
+      return goal.isCompleted;
+    }
+    return false;
+  }
+
+  public addGoal(title: string, category: FutureGoalItem['category']): FutureGoalItem {
+    const newGoal: FutureGoalItem = {
+      id: `goal-${Date.now()}`,
+      title,
+      category,
+      isCompleted: false,
+    };
+    this.futureGoals = [newGoal, ...this.futureGoals];
+    return newGoal;
+  }
+
+  // --- PREFERENCES & DATES ---
   public getPreferences(): UserPreferences {
     return this.preferences;
   }
@@ -77,7 +121,6 @@ class StorageService {
     return this.preferences;
   }
 
-  // --- ANNIVERSARY COUNTER ---
   public getDaysTogether(): number {
     try {
       const anniversary = new Date(this.preferences.anniversaryDate);
@@ -87,6 +130,18 @@ class StorageService {
       return isNaN(diffDays) ? 1 : diffDays;
     } catch {
       return 1;
+    }
+  }
+
+  public getDaysUntilNextMeet(): number {
+    try {
+      const meet = new Date(this.preferences.nextDateMeet);
+      const now = new Date();
+      const diffTime = meet.getTime() - now.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return isNaN(diffDays) || diffDays < 0 ? 0 : diffDays;
+    } catch {
+      return 0;
     }
   }
 

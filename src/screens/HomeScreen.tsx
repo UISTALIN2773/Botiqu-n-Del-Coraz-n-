@@ -10,7 +10,6 @@ import {
 import {
   MoodType,
   MOOD_DEFINITIONS,
-  EmotionalItem,
 } from '../config/database';
 import { storageService } from '../modules/storageService';
 import { getTodayPhrase } from '../config/phrases';
@@ -19,25 +18,29 @@ import { HapticsService } from '../modules/hapticsService';
 
 interface HomeScreenProps {
   onSelectMood: (mood: MoodType) => void;
-  onOpenMemory: (item: EmotionalItem) => void;
-  onGoToCalm: () => void;
+  onOpenSOS: () => void;
+  onOpenDoubtWall: () => void;
+  onOpenTimeCapsules: () => void;
+  onOpenFutureTree: () => void;
 }
 
 const { width } = Dimensions.get('window');
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
   onSelectMood,
-  onOpenMemory,
-  onGoToCalm,
+  onOpenSOS,
+  onOpenDoubtWall,
+  onOpenTimeCapsules,
+  onOpenFutureTree,
 }) => {
   const prefs = storageService.getPreferences();
   const daysTogether = storageService.getDaysTogether();
+  const daysUntilMeet = storageService.getDaysUntilNextMeet();
   const todayPhrase = getTodayPhrase();
   const [capsuleUnlocked, setCapsuleUnlocked] = useState<boolean>(
     storageService.isCapsuleUnlocked()
   );
 
-  // Time-of-day greeting
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour >= 5 && hour < 12) return 'Buenos días';
@@ -61,34 +64,94 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <Text style={styles.greetingText}>
           {getGreeting()}, <Text style={styles.partnerName}>{prefs.partnerName} ❤️</Text>
         </Text>
-        <Text style={styles.senderSubtext}>De tu persona favorita • Siempre contigo</Text>
+        <Text style={styles.senderSubtext}>De {prefs.senderName} • Siempre contigo</Text>
 
         {/* Days Together Counter Card */}
         <View style={styles.counterCard}>
           <View style={styles.counterRow}>
             <Text style={styles.counterNumber}>{daysTogether}</Text>
             <View style={styles.counterCol}>
-              <Text style={styles.counterTitle}>Días Juntos</Text>
+              <Text style={styles.counterTitle}>Días Juntos en Nuestro Amor</Text>
               <Text style={styles.counterSubtitle}>
-                Y cada día te amo un poquito más
+                {daysUntilMeet > 0
+                  ? `Faltan solo ${daysUntilMeet} días para vernos de nuevo`
+                  : 'Y cada día te amo un poquito más'}
               </Text>
             </View>
           </View>
         </View>
       </View>
 
-      {/* Central Interactive Heart Quick Trigger */}
+      {/* 🚨 BOTÓN DE PÁNICO EMOCIONAL S.O.S. */}
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => {
+          HapticsService.triggerHeartbeat();
+          onOpenSOS();
+        }}
+        style={styles.sosBanner}
+      >
+        <Text style={styles.sosIcon}>🚨</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.sosTitle}>S.O.S. Parar el Sobrepensamiento</Text>
+          <Text style={styles.sosSub}>
+            Toca aquí si sientes miedo, sobrepensamiento o un ataque de ansiedad.
+          </Text>
+        </View>
+        <Text style={styles.sosArrow}>➔</Text>
+      </TouchableOpacity>
+
+      {/* Central Interactive Heart Trigger */}
       <View style={styles.heartBanner}>
         <HeartAnimation
-          size={74}
+          size={72}
           color={prefs.widgetColor || '#E11D48'}
           isPulsing={true}
           onPress={() => onSelectMood('ansiedad')}
         />
-        <Text style={styles.heartBannerTitle}>Botiquín de Emergencia</Text>
+        <Text style={styles.heartBannerTitle}>Botiquín Rápido del Corazón</Text>
         <Text style={styles.heartBannerSub}>
-          Toca el corazón si sientes ansiedad, dudas o me extrañas
+          Toca el corazón para abrir la ventana de calma instantánea
         </Text>
+      </View>
+
+      {/* Módulos Especiales para Inseguridades y Distancia */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Refugio para Momentos Difíciles</Text>
+        <View style={styles.specialGrid}>
+          {/* Muro de Dudas */}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={onOpenDoubtWall}
+            style={styles.specialCard}
+          >
+            <Text style={styles.specialIcon}>🛡️</Text>
+            <Text style={styles.specialTitle}>Muro de Dudas</Text>
+            <Text style={styles.specialSub}>Respuestas a cuando sientas inseguridad</Text>
+          </TouchableOpacity>
+
+          {/* Sobres Abrir Solo Si */}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={onOpenTimeCapsules}
+            style={styles.specialCard}
+          >
+            <Text style={styles.specialIcon}>💌</Text>
+            <Text style={styles.specialTitle}>Sobres Sellados</Text>
+            <Text style={styles.specialSub}>"Ábreme solo si estás llorando..."</Text>
+          </TouchableOpacity>
+
+          {/* Árbol del Futuro */}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={onOpenFutureTree}
+            style={styles.specialCard}
+          >
+            <Text style={styles.specialIcon}>🌱</Text>
+            <Text style={styles.specialTitle}>Nuestro Futuro</Text>
+            <Text style={styles.specialSub}>Metas juntos y cuenta regresiva</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Botiquín Rápido (4 Mood Buttons Grid) */}
@@ -139,22 +202,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           )}
         </View>
       </View>
-
-      {/* Quick Calm Shortcut */}
-      <TouchableOpacity
-        activeOpacity={0.9}
-        onPress={onGoToCalm}
-        style={styles.calmShortcut}
-      >
-        <Text style={styles.calmIcon}>🍃</Text>
-        <View style={styles.calmCol}>
-          <Text style={styles.calmTitle}>Zona de Respiración & Calma</Text>
-          <Text style={styles.calmSub}>
-            Ejercicios de respiración 4-4-4 y música relajante
-          </Text>
-        </View>
-        <Text style={styles.calmArrow}>➔</Text>
-      </TouchableOpacity>
     </ScrollView>
   );
 };
@@ -166,7 +213,7 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
   },
   topHeader: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   greetingText: {
     fontSize: 22,
@@ -186,7 +233,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 16,
-    marginTop: 14,
+    marginTop: 12,
     elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -200,61 +247,124 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   counterNumber: {
-    fontSize: 36,
+    fontSize: 34,
     fontWeight: '900',
     color: '#E11D48',
-    marginRight: 16,
+    marginRight: 14,
     fontVariant: ['tabular-nums'],
   },
   counterCol: {
     flex: 1,
   },
   counterTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
     color: '#0F172A',
   },
   counterSubtitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748B',
     marginTop: 2,
     fontWeight: '500',
   },
+  sosBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF1F2',
+    borderRadius: 20,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#FFE4E6',
+    elevation: 2,
+  },
+  sosIcon: {
+    fontSize: 28,
+    marginRight: 12,
+  },
+  sosTitle: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#E11D48',
+  },
+  sosSub: {
+    fontSize: 11,
+    color: '#9F1239',
+    marginTop: 1,
+    lineHeight: 15,
+  },
+  sosArrow: {
+    fontSize: 16,
+    color: '#E11D48',
+    fontWeight: '800',
+    marginLeft: 6,
+  },
   heartBanner: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    padding: 20,
+    padding: 18,
     alignItems: 'center',
-    marginBottom: 22,
-    elevation: 4,
+    marginBottom: 20,
+    elevation: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
     borderWidth: 1,
     borderColor: '#F8FAFC',
   },
   heartBannerTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '800',
     color: '#0F172A',
-    marginTop: 8,
+    marginTop: 6,
   },
   heartBannerSub: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748B',
     textAlign: 'center',
-    marginTop: 4,
+    marginTop: 2,
     paddingHorizontal: 16,
   },
   section: {
-    marginBottom: 22,
+    marginBottom: 20,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: '#1E293B',
-    marginBottom: 12,
+    marginBottom: 10,
+  },
+  specialGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  specialCard: {
+    width: '31%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    elevation: 2,
+  },
+  specialIcon: {
+    fontSize: 22,
+    marginBottom: 6,
+  },
+  specialTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#0F172A',
+    textAlign: 'center',
+  },
+  specialSub: {
+    fontSize: 9,
+    color: '#64748B',
+    textAlign: 'center',
+    marginTop: 2,
+    lineHeight: 12,
   },
   grid: {
     flexDirection: 'row',
@@ -265,95 +375,60 @@ const styles = StyleSheet.create({
     width: (width - 52) / 2,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 14,
-    marginBottom: 12,
+    padding: 12,
+    marginBottom: 10,
     borderLeftWidth: 4,
     elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
     borderWidth: 1,
     borderColor: '#F1F5F9',
   },
   gridTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
-    marginBottom: 4,
+    marginBottom: 3,
   },
   gridDesc: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#64748B',
-    lineHeight: 15,
+    lineHeight: 14,
   },
   capsuleCard: {
     backgroundColor: '#FFF1F2',
-    borderRadius: 20,
-    padding: 18,
+    borderRadius: 18,
+    padding: 16,
     borderWidth: 1,
     borderColor: '#FFE4E6',
   },
   capsuleQuote: {
-    fontSize: 14,
-    lineHeight: 22,
+    fontSize: 13,
+    lineHeight: 20,
     color: '#9F1239',
     fontStyle: 'italic',
     textAlign: 'center',
   },
   capsuleAuthor: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: '#E11D48',
     textAlign: 'right',
-    marginTop: 8,
+    marginTop: 6,
   },
   lockedCapsuleBtn: {
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 6,
   },
   lockedIcon: {
-    fontSize: 32,
-    marginBottom: 6,
+    fontSize: 28,
+    marginBottom: 4,
   },
   lockedText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
     color: '#9F1239',
   },
   lockedSub: {
-    fontSize: 12,
-    color: '#BE123C',
-    marginTop: 2,
-  },
-  calmShortcut: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F0FDF4',
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#DCFCE7',
-  },
-  calmIcon: {
-    fontSize: 26,
-    marginRight: 14,
-  },
-  calmCol: {
-    flex: 1,
-  },
-  calmTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#166534',
-  },
-  calmSub: {
     fontSize: 11,
-    color: '#15803D',
-    marginTop: 2,
-  },
-  calmArrow: {
-    fontSize: 16,
-    color: '#166534',
-    fontWeight: '700',
+    color: '#BE123C',
+    marginTop: 1,
   },
 });

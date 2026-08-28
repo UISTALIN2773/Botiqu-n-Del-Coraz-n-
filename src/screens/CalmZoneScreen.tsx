@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,9 @@ import { HapticsService } from '../modules/hapticsService';
 export const CalmZoneScreen: React.FC = () => {
   const [activeSound, setActiveSound] = useState<AmbientTrackType | null>(null);
   const [isLooping, setIsLooping] = useState<boolean>(true);
+  const [isPresenceActive, setIsPresenceActive] = useState<boolean>(false);
+  const [sleepTimer, setSleepTimer] = useState<number | null>(null);
+  const presenceInterval = useRef<NodeJS.Timeout | null>(null);
 
   const soundscapes: { id: AmbientTrackType; name: string; icon: string; desc: string }[] = [
     { id: 'rain', name: 'Lluvia Relajante', icon: '🌧️', desc: 'Sonido suave de gotas para desconectar la mente' },
@@ -32,16 +35,35 @@ export const CalmZoneScreen: React.FC = () => {
     }
   };
 
-  const handleToggleLoop = () => {
-    const next = !isLooping;
-    setIsLooping(next);
-    audioEngine.setLoopMode(next);
+  const handleTogglePresence = () => {
     HapticsService.triggerSoftFeedback();
+    if (isPresenceActive) {
+      setIsPresenceActive(false);
+      if (presenceInterval.current) clearInterval(presenceInterval.current);
+    } else {
+      setIsPresenceActive(true);
+      presenceInterval.current = setInterval(() => {
+        HapticsService.triggerSoftFeedback();
+      }, 950);
+    }
+  };
+
+  const handleSetTimer = (minutes: number) => {
+    HapticsService.triggerSoftFeedback();
+    setSleepTimer(minutes);
+    setTimeout(() => {
+      audioEngine.stopAll();
+      setActiveSound(null);
+      setIsPresenceActive(false);
+      if (presenceInterval.current) clearInterval(presenceInterval.current);
+      setSleepTimer(null);
+    }, minutes * 60 * 1000);
   };
 
   useEffect(() => {
     return () => {
       audioEngine.stopAll();
+      if (presenceInterval.current) clearInterval(presenceInterval.current);
     };
   }, []);
 
@@ -49,7 +71,7 @@ export const CalmZoneScreen: React.FC = () => {
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContainer}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Zona de Calma & Respiración 🍃</Text>
+        <Text style={styles.title}>Zona de Calma & Sueño 🍃</Text>
         <Text style={styles.subtitle}>
           Un rincón silencioso para reducir el ritmo cardíaco y encontrar paz interior.
         </Text>
@@ -60,16 +82,29 @@ export const CalmZoneScreen: React.FC = () => {
         <BreathingCircle />
       </View>
 
+      {/* Simulador de Presencia & Latido de Pecho */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Simulador de Presencia (Dormir en mi Pecho) ❤️</Text>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={handleTogglePresence}
+          style={[styles.presenceCard, isPresenceActive && styles.presenceCardActive]}
+        >
+          <Text style={styles.presenceIcon}>{isPresenceActive ? '💓' : '🤍'}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.presenceTitle}>
+              {isPresenceActive ? 'Latido Continuo Activo' : 'Activar Latido Suave'}
+            </Text>
+            <Text style={styles.presenceSub}>
+              Pulsaciones rítmicas sutiles para colocar el celular sobre tu pecho y dormir acompañado/a.
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+
       {/* Ambient Soundscapes Playlist */}
       <View style={styles.section}>
-        <View style={styles.sectionTitleRow}>
-          <Text style={styles.sectionTitle}>Pistas de Fondo Continuas</Text>
-          <TouchableOpacity onPress={handleToggleLoop} style={styles.loopToggle}>
-            <Text style={[styles.loopText, isLooping && styles.loopTextActive]}>
-              {isLooping ? '🔁 Bucle Infinito' : 'Una sola vez'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <Text style={styles.sectionTitle}>Pistas de Fondo Continuas</Text>
 
         {soundscapes.map((track) => {
           const isPlaying = activeSound === track.id;
@@ -97,12 +132,27 @@ export const CalmZoneScreen: React.FC = () => {
         })}
       </View>
 
-      {/* Gentle advice */}
-      <View style={styles.adviceBox}>
-        <Text style={styles.adviceTitle}>💡 Consejo para momentos de inseguridad</Text>
-        <Text style={styles.adviceText}>
-          Cuando no podamos hablar en tiempo real, recuerda que mis sentimientos por ti no cambian ni se debilitan. Estás en mi corazón en cada instante.
-        </Text>
+      {/* Temporizador de Apagado (Sleep Timer) */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Temporizador de Apagado (Sleep Timer) ⏱️</Text>
+        <View style={styles.timerRow}>
+          {[15, 30, 45, 60].map((mins) => (
+            <TouchableOpacity
+              key={mins}
+              onPress={() => handleSetTimer(mins)}
+              style={[styles.timerBtn, sleepTimer === mins && styles.timerBtnActive]}
+            >
+              <Text style={[styles.timerBtnText, sleepTimer === mins && styles.timerBtnTextActive]}>
+                {mins} min
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        {sleepTimer && (
+          <Text style={styles.timerNotice}>
+            La música y vibración se apagarán automáticamente en {sleepTimer} minutos.
+          </Text>
+        )}
       </View>
     </ScrollView>
   );
@@ -143,30 +193,39 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 20,
   },
-  sectionTitleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: '#1E293B',
+    marginBottom: 12,
   },
-  loopToggle: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 12,
+  presenceCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF1F2',
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#FFE4E6',
   },
-  loopText: {
+  presenceCardActive: {
+    backgroundColor: '#FFE4E6',
+    borderColor: '#E11D48',
+  },
+  presenceIcon: {
+    fontSize: 32,
+    marginRight: 14,
+  },
+  presenceTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#9F1239',
+  },
+  presenceSub: {
     fontSize: 11,
-    color: '#64748B',
-    fontWeight: '700',
-  },
-  loopTextActive: {
-    color: '#0284C7',
+    color: '#BE123C',
+    marginTop: 2,
+    lineHeight: 15,
   },
   trackCard: {
     flexDirection: 'row',
@@ -224,22 +283,37 @@ const styles = StyleSheet.create({
   playBadgeTextActive: {
     color: '#FFFFFF',
   },
-  adviceBox: {
-    backgroundColor: '#FEF3C7',
-    borderRadius: 18,
-    padding: 16,
+  timerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  timerBtn: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginHorizontal: 3,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#E2E8F0',
   },
-  adviceTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#92400E',
-    marginBottom: 4,
+  timerBtnActive: {
+    backgroundColor: '#0F172A',
+    borderColor: '#0F172A',
   },
-  adviceText: {
+  timerBtnText: {
     fontSize: 12,
-    lineHeight: 18,
-    color: '#B45309',
+    fontWeight: '700',
+    color: '#475569',
+  },
+  timerBtnTextActive: {
+    color: '#FFFFFF',
+  },
+  timerNotice: {
+    fontSize: 11,
+    color: '#16A34A',
+    fontWeight: '600',
+    marginTop: 8,
+    textAlign: 'center',
   },
 });

@@ -8,6 +8,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  Modal,
 } from 'react-native';
 import { MoodType, EmotionalItem } from './config/database';
 import { storageService } from './modules/storageService';
@@ -20,6 +21,10 @@ import { HomeScreen } from './screens/HomeScreen';
 import { MemoriesScreen } from './screens/MemoriesScreen';
 import { CalmZoneScreen } from './screens/CalmZoneScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
+import { PanicSOSScreen } from './screens/PanicSOSScreen';
+import { DoubtWallScreen } from './screens/DoubtWallScreen';
+import { TimeCapsulesScreen } from './screens/TimeCapsulesScreen';
+import { FutureTreeScreen } from './screens/FutureTreeScreen';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('home');
@@ -29,8 +34,13 @@ export default function App() {
   const [enteredPin, setEnteredPin] = useState<string>('');
   const [pinError, setPinError] = useState<string>('');
 
+  // Sub-screens modals
+  const [isSOSVisible, setIsSOSVisible] = useState<boolean>(false);
+  const [isDoubtWallVisible, setIsDoubtWallVisible] = useState<boolean>(false);
+  const [isTimeCapsulesVisible, setIsTimeCapsulesVisible] = useState<boolean>(false);
+  const [isFutureTreeVisible, setIsFutureTreeVisible] = useState<boolean>(false);
+
   useEffect(() => {
-    // Initial sync
     WidgetBridge.updateWidgetData(popupMood);
 
     const prefs = storageService.getPreferences();
@@ -38,7 +48,7 @@ export default function App() {
       setIsLocked(true);
     }
 
-    // Deep link listener from Android Home Widget
+    // Android Widget Deep Link Handler
     const handleDeepLink = (event: { url: string }) => {
       const url = event.url;
       if (url && url.includes('botiquin://open')) {
@@ -46,13 +56,19 @@ export default function App() {
         const mood = (moodMatch ? moodMatch[1] : 'ansiedad') as MoodType;
         setPopupMood(mood);
         setIsQuickPopupVisible(true);
+
+        if (url.includes('autoplay=true')) {
+          const memories = storageService.getMemoriesByMood(mood);
+          const first = memories[0];
+          if (first) {
+            audioEngine.playDualTrack(first.voiceFilename, first.ambientTrack);
+          }
+        }
       }
     };
 
     Linking.getInitialURL().then((url) => {
-      if (url) {
-        handleDeepLink({ url });
-      }
+      if (url) handleDeepLink({ url });
     });
 
     const subscription = Linking.addEventListener('url', handleDeepLink);
@@ -118,7 +134,6 @@ export default function App() {
           <Text style={styles.unlockBtnText}>Desbloquear</Text>
         </TouchableOpacity>
 
-        {/* Quick emergency button even when PIN is active */}
         <TouchableOpacity
           onPress={() => {
             setPopupMood('ansiedad');
@@ -129,7 +144,6 @@ export default function App() {
           <Text style={styles.emergencyQuickText}>❤️ Abrir Botiquín de Emergencia</Text>
         </TouchableOpacity>
 
-        {/* Floating Quick Popup */}
         <QuickPopupModal
           visible={isQuickPopupVisible}
           initialMood={popupMood}
@@ -149,8 +163,10 @@ export default function App() {
         {activeTab === 'home' && (
           <HomeScreen
             onSelectMood={handleSelectMoodFromHome}
-            onOpenMemory={handlePlayMemoryDirect}
-            onGoToCalm={() => setActiveTab('calm')}
+            onOpenSOS={() => setIsSOSVisible(true)}
+            onOpenDoubtWall={() => setIsDoubtWallVisible(true)}
+            onOpenTimeCapsules={() => setIsTimeCapsulesVisible(true)}
+            onOpenFutureTree={() => setIsFutureTreeVisible(true)}
           />
         )}
         {activeTab === 'memories' && (
@@ -167,13 +183,56 @@ export default function App() {
         accentColor={prefs.widgetColor || '#E11D48'}
       />
 
-      {/* Floating Quick Popup Modal (Accessible anytime from Widget or Home) */}
+      {/* Floating Quick Popup Modal */}
       <QuickPopupModal
         visible={isQuickPopupVisible}
         initialMood={popupMood}
         onClose={() => setIsQuickPopupVisible(false)}
         onOpenFullApp={() => setIsQuickPopupVisible(false)}
       />
+
+      {/* Modal 1: Panic SOS Grounding */}
+      <Modal visible={isSOSVisible} animationType="slide">
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+          <PanicSOSScreen onClose={() => setIsSOSVisible(false)} />
+        </SafeAreaView>
+      </Modal>
+
+      {/* Modal 2: Doubt Wall */}
+      <Modal visible={isDoubtWallVisible} animationType="slide">
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+          <View style={styles.modalHeaderClose}>
+            <TouchableOpacity onPress={() => setIsDoubtWallVisible(false)} style={styles.closeBackBtn}>
+              <Text style={styles.closeBackText}>← Volver</Text>
+            </TouchableOpacity>
+          </View>
+          <DoubtWallScreen />
+        </SafeAreaView>
+      </Modal>
+
+      {/* Modal 3: Time Capsules */}
+      <Modal visible={isTimeCapsulesVisible} animationType="slide">
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+          <View style={styles.modalHeaderClose}>
+            <TouchableOpacity onPress={() => setIsTimeCapsulesVisible(false)} style={styles.closeBackBtn}>
+              <Text style={styles.closeBackText}>← Volver</Text>
+            </TouchableOpacity>
+          </View>
+          <TimeCapsulesScreen />
+        </SafeAreaView>
+      </Modal>
+
+      {/* Modal 4: Future Tree */}
+      <Modal visible={isFutureTreeVisible} animationType="slide">
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+          <View style={styles.modalHeaderClose}>
+            <TouchableOpacity onPress={() => setIsFutureTreeVisible(false)} style={styles.closeBackBtn}>
+              <Text style={styles.closeBackText}>← Volver</Text>
+            </TouchableOpacity>
+          </View>
+          <FutureTreeScreen />
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -185,6 +244,21 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  modalHeaderClose: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  closeBackBtn: {
+    padding: 4,
+  },
+  closeBackText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
   },
   lockedContainer: {
     flex: 1,
