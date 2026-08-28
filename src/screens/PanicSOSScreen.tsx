@@ -9,6 +9,7 @@ import {
 import { storageService } from '../modules/storageService';
 import { audioEngine } from '../modules/audioEngine';
 import { HapticsService } from '../modules/hapticsService';
+import { AudioRecorderModal } from '../components/AudioRecorderModal';
 
 interface PanicSOSScreenProps {
   onClose: () => void;
@@ -17,6 +18,8 @@ interface PanicSOSScreenProps {
 export const PanicSOSScreen: React.FC<PanicSOSScreenProps> = ({ onClose }) => {
   const [expandedStep, setExpandedStep] = useState<number | null>(0);
   const [isAudioPlaying, setIsAudioPlaying] = useState<boolean>(false);
+  const [currentVoiceFile, setCurrentVoiceFile] = useState<string>('voice_ansiedad_01.wav');
+  const [isRecorderVisible, setIsRecorderVisible] = useState<boolean>(false);
 
   const prefs = storageService.getPreferences();
   const daysTogether = storageService.getDaysTogether();
@@ -41,7 +44,7 @@ export const PanicSOSScreen: React.FC<PanicSOSScreenProps> = ({ onClose }) => {
     } else {
       setIsAudioPlaying(true);
       HapticsService.triggerHeartbeat();
-      await audioEngine.playDualTrack('voice_ansiedad_01.wav', 'rain', undefined, () => {
+      await audioEngine.playDualTrack(currentVoiceFile, 'rain', undefined, () => {
         setIsAudioPlaying(false);
       });
     }
@@ -129,6 +132,32 @@ export const PanicSOSScreen: React.FC<PanicSOSScreenProps> = ({ onClose }) => {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Botón para Grabar / Subir Nota de Voz Personalizada */}
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => setIsRecorderVisible(true)}
+        style={styles.customAudioBtn}
+      >
+        <Text style={styles.customAudioIcon}>🎙️</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.customAudioTitle}>+ Grabar o Subir Audio de Calma</Text>
+          <Text style={styles.customAudioSub}>
+            Graba tu propia voz para que tu pareja te escuche en sus momentos difíciles.
+          </Text>
+        </View>
+        <Text style={styles.customAudioArrow}>➔</Text>
+      </TouchableOpacity>
+
+      {/* Modal Grabador Universal */}
+      <AudioRecorderModal
+        visible={isRecorderVisible}
+        target={{ type: 'sos', title: 'Botón de Pánico S.O.S. (Voz de Calma)' }}
+        onClose={() => setIsRecorderVisible(false)}
+        onSaved={(newAudio) => {
+          setCurrentVoiceFile(newAudio);
+        }}
+      />
     </ScrollView>
   );
 };
@@ -250,6 +279,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 4,
+    marginBottom: 16,
   },
   leftCardCream: {
     width: '48%',
@@ -310,5 +340,36 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 2,
     lineHeight: 14,
+  },
+  customAudioBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FAF5EE',
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: '#EBDCCE',
+    elevation: 2,
+  },
+  customAudioIcon: {
+    fontSize: 26,
+    marginRight: 12,
+  },
+  customAudioTitle: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#2B1810',
+  },
+  customAudioSub: {
+    fontSize: 10,
+    color: '#8C6F58',
+    marginTop: 2,
+    lineHeight: 14,
+  },
+  customAudioArrow: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#E11D48',
+    marginLeft: 8,
   },
 });

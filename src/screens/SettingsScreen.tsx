@@ -8,10 +8,12 @@ import {
   TouchableOpacity,
   Switch,
   Modal,
+  Image,
 } from 'react-native';
 import { storageService } from '../modules/storageService';
 import { WidgetBridge } from '../modules/widgetBridge';
 import { HapticsService } from '../modules/hapticsService';
+import { AudioRecorderModal } from '../components/AudioRecorderModal';
 
 export const SettingsScreen: React.FC = () => {
   const currentPrefs = storageService.getPreferences();
@@ -21,6 +23,7 @@ export const SettingsScreen: React.FC = () => {
   const [anniversaryDate, setAnniversaryDate] = useState<string>(currentPrefs.anniversaryDate);
   const [nextDateMeet, setNextDateMeet] = useState<string>(currentPrefs.nextDateMeet);
   const [selectedTheme, setSelectedTheme] = useState<any>(currentPrefs.themeName);
+  const [partnerPhotoUri, setPartnerPhotoUri] = useState<string>(currentPrefs.partnerPhotoUri || '');
 
   // Toggles tipo switch ON/OFF
   const [autoReminderAnniversary, setAutoReminderAnniversary] = useState<boolean>(true);
@@ -30,6 +33,9 @@ export const SettingsScreen: React.FC = () => {
   const [isPinModalOpen, setIsPinModalOpen] = useState<boolean>(false);
   const [isPinEnabled, setIsPinEnabled] = useState<boolean>(currentPrefs.isPinEnabled);
   const [pinCode, setPinCode] = useState<string>(currentPrefs.pinCode);
+
+  // Audio & Photo Studio Modal
+  const [isRecorderOpen, setIsRecorderOpen] = useState<boolean>(false);
 
   // Feedback notice
   const [saveNotice, setSaveNotice] = useState<string>('');
@@ -49,6 +55,7 @@ export const SettingsScreen: React.FC = () => {
       anniversaryDate,
       nextDateMeet,
       themeName: selectedTheme,
+      partnerPhotoUri,
       isPinEnabled,
       pinCode,
     });
@@ -63,10 +70,44 @@ export const SettingsScreen: React.FC = () => {
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.container}>
       <Text style={styles.heading}>Ajustes & Personalización ⚙️</Text>
       <Text style={styles.subheading}>
-        Configura los nombres de pareja, recordatorios automáticos, temas visuales y seguridad.
+        Configura los nombres de pareja, foto del widget, audios grabados, temas visuales y seguridad.
       </Text>
 
-      {/* Sección Superior (Nombres y Fechas con conmutadores ON/OFF) */}
+      {/* Sección 1: Foto de la Pareja para el Widget */}
+      <View style={styles.card}>
+        <Text style={styles.cardSectionTitle}>Foto de Pareja para el Widget 📸</Text>
+        <Text style={styles.swatchSub}>
+          Esta foto aparecerá dentro del círculo del widget de Android y en la cabecera.
+        </Text>
+
+        <View style={styles.photoRow}>
+          <View style={styles.photoPreviewCircle}>
+            {partnerPhotoUri ? (
+              <Image source={{ uri: partnerPhotoUri }} style={styles.photoPreviewImage} />
+            ) : (
+              <Text style={{ fontSize: 28 }}>❤️</Text>
+            )}
+          </View>
+
+          <View style={{ flex: 1, marginLeft: 14 }}>
+            <TextInput
+              value={partnerPhotoUri}
+              onChangeText={setPartnerPhotoUri}
+              placeholder="Ruta o URL de la foto..."
+              placeholderTextColor="#A1826E"
+              style={[styles.input, { fontSize: 11 }]}
+            />
+            <TouchableOpacity
+              onPress={() => setIsRecorderOpen(true)}
+              style={styles.openStudioBtn}
+            >
+              <Text style={styles.openStudioText}>Abrir Estudio Multimedia 🎙️📸</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+
+      {/* Sección 2: Nombres y Fechas con conmutadores ON/OFF */}
       <View style={styles.card}>
         <Text style={styles.cardSectionTitle}>Nombres de Pareja</Text>
 
@@ -137,7 +178,7 @@ export const SettingsScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* Selector de Temas Visuales (4 Muestrarios Cuadrados) */}
+      {/* Sección 3: Selector de Temas Visuales (4 Muestrarios Cuadrados) */}
       <View style={styles.card}>
         <Text style={styles.cardSectionTitle}>Selector de Temas Visuales</Text>
         <Text style={styles.swatchSub}>
@@ -157,7 +198,6 @@ export const SettingsScreen: React.FC = () => {
                 }}
                 style={[styles.squareSwatch, isSelected && styles.squareSwatchSelected]}
               >
-                {/* Cuadricula bicolor */}
                 <View style={styles.swatchColorSplit}>
                   <View style={[styles.splitHalf, { backgroundColor: t.colors[0] }]} />
                   <View style={[styles.splitHalf, { backgroundColor: t.colors[1] }]} />
@@ -171,7 +211,7 @@ export const SettingsScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* Módulo de Seguridad (Inferior): Botón ancho redondeado en tono crema: 🔒 PIN Lock */}
+      {/* Sección 4: Módulo de Seguridad */}
       <View style={styles.card}>
         <Text style={styles.cardSectionTitle}>Seguridad & Privacidad</Text>
         <Text style={styles.swatchSub}>
@@ -242,6 +282,16 @@ export const SettingsScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Modal Estudio de Audio & Foto */}
+      <AudioRecorderModal
+        visible={isRecorderOpen}
+        target={{ type: 'memory', title: 'Foto & Audios de Pareja' }}
+        onClose={() => setIsRecorderOpen(false)}
+        onSaved={(audio, photo) => {
+          if (photo) setPartnerPhotoUri(photo);
+        }}
+      />
     </ScrollView>
   );
 };
@@ -299,6 +349,41 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#F5EBE1',
     marginVertical: 14,
+  },
+  photoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  photoPreviewCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#F5EBE1',
+    borderWidth: 2,
+    borderColor: '#E11D48',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  photoPreviewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  openStudioBtn: {
+    backgroundColor: '#FAF5EE',
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: '#C4A48A',
+    alignItems: 'center',
+  },
+  openStudioText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#5C3E2E',
   },
   dateToggleRow: {
     flexDirection: 'row',
@@ -364,7 +449,7 @@ const styles = StyleSheet.create({
   pinLockBtnCream: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5EBE1', // Tono crema
+    backgroundColor: '#F5EBE1',
     borderRadius: 18,
     padding: 14,
     borderWidth: 1.5,

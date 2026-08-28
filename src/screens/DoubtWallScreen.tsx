@@ -10,15 +10,17 @@ import { DoubtItem } from '../config/database';
 import { storageService } from '../modules/storageService';
 import { audioEngine } from '../modules/audioEngine';
 import { HapticsService } from '../modules/hapticsService';
+import { AudioRecorderModal, AudioUploadTarget } from '../components/AudioRecorderModal';
 
 interface DoubtWallScreenProps {
   onClose?: () => void;
 }
 
 export const DoubtWallScreen: React.FC<DoubtWallScreenProps> = ({ onClose }) => {
-  const doubts = storageService.getDoubtItems();
+  const [doubts, setDoubts] = useState<DoubtItem[]>(storageService.getDoubtItems());
   const [expandedId, setExpandedId] = useState<string | null>(doubts[0]?.id || null);
   const [playingId, setPlayingId] = useState<string | null>(null);
+  const [recorderTarget, setRecorderTarget] = useState<AudioUploadTarget | null>(null);
 
   const handleToggle = (id: string) => {
     HapticsService.triggerSoftFeedback();
@@ -35,6 +37,15 @@ export const DoubtWallScreen: React.FC<DoubtWallScreenProps> = ({ onClose }) => 
         setPlayingId(null);
       });
     }
+  };
+
+  const handleOpenRecorderForDoubt = (item: DoubtItem) => {
+    HapticsService.triggerSoftFeedback();
+    setRecorderTarget({
+      type: 'doubt',
+      id: item.id,
+      title: item.trigger,
+    });
   };
 
   return (
@@ -82,17 +93,26 @@ export const DoubtWallScreen: React.FC<DoubtWallScreenProps> = ({ onClose }) => 
               </View>
 
               {/* Botón para reproducir nota de voz explicativa */}
-              {item.voiceFilename && (
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  onPress={() => handlePlayVoice(item)}
-                  style={[styles.voiceBtnCoffee, isPlaying && styles.voiceBtnCoffeeActive]}
-                >
-                  <Text style={styles.voiceBtnText}>
-                    {isPlaying ? '⏸ Pausar Explicación' : '▶ Escuchar mi respuesta en audio'}
-                  </Text>
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => handlePlayVoice(item)}
+                style={[styles.voiceBtnCoffee, isPlaying && styles.voiceBtnCoffeeActive]}
+              >
+                <Text style={styles.voiceBtnText}>
+                  {isPlaying ? '⏸ Pausar Explicación' : item.voiceFilename ? '▶ Escuchar mi respuesta en audio' : '▶ Escuchar Audio'}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Botón dedicado: Grabar o Subir Audio para esta duda */}
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => handleOpenRecorderForDoubt(item)}
+                style={styles.recordDoubtBtn}
+              >
+                <Text style={styles.recordDoubtText}>
+                  🎙️ Grabar o Cambiar Audio para esta Duda
+                </Text>
+              </TouchableOpacity>
             </View>
           );
         }
@@ -110,6 +130,22 @@ export const DoubtWallScreen: React.FC<DoubtWallScreenProps> = ({ onClose }) => 
           </TouchableOpacity>
         );
       })}
+
+      {/* Modal Grabador Universal */}
+      <AudioRecorderModal
+        visible={!!recorderTarget}
+        target={recorderTarget}
+        onClose={() => setRecorderTarget(null)}
+        onSaved={(newAudio) => {
+          if (recorderTarget?.id) {
+            const updated = doubts.map((d) =>
+              d.id === recorderTarget.id ? { ...d, voiceFilename: newAudio } : d
+            );
+            setDoubts(updated);
+          }
+          setRecorderTarget(null);
+        }}
+      />
     </ScrollView>
   );
 };
@@ -166,7 +202,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontWeight: '700',
-    color: '#E6D5C3', // Marfil suave
+    color: '#E6D5C3',
     marginRight: 8,
   },
   arrowIconDark: {
@@ -175,7 +211,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   expandedCardCream: {
-    backgroundColor: '#F5EBE1', // Fondo crema claro contrastante
+    backgroundColor: '#F5EBE1',
     borderRadius: 20,
     padding: 18,
     marginBottom: 12,
@@ -239,6 +275,7 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     borderRadius: 14,
     alignItems: 'center',
+    marginBottom: 8,
   },
   voiceBtnCoffeeActive: {
     backgroundColor: '#E11D48',
@@ -247,5 +284,18 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '800',
+  },
+  recordDoubtBtn: {
+    backgroundColor: '#FAF5EE',
+    borderWidth: 1,
+    borderColor: '#C4A48A',
+    borderRadius: 12,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  recordDoubtText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#5C3E2E',
   },
 });
