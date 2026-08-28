@@ -1,0 +1,85 @@
+name: Compilar APK - Botiquín del Corazón
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build-android-apk:
+    name: 🚀 Compilar APK Android
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Clonar repositorio
+        uses: actions/checkout@v4
+
+      - name: ☕ Configurar JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 🟢 Configurar Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: 📦 Instalar dependencias
+        run: npm install --legacy-peer-deps
+
+      - name: 🔑 Generar Keystore de compilación
+        run: |
+          cd android/app
+          keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" || true
+
+      - name: 🔧 Dar permisos de ejecución a Gradle
+        run: chmod +x android/gradlew
+
+      - name: 🔨 Compilar APK Release & Debug
+        run: |
+          cd android
+          ./gradlew assembleRelease --no-daemon || ./gradlew assembleDebug --no-daemon
+
+      - name: 🔍 Localizar APK generado
+        id: find_apk
+        run: |
+          APK_PATH=$(find android/app/build/outputs/apk -name "*.apk" | head -n 1)
+          echo "APK_PATH=$APK_PATH" >> $GITHUB_ENV
+          echo "Encontrado APK en: $APK_PATH"
+
+      - name: 📤 Subir APK como Artefacto de GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: Botiquin-Del-Corazon-APK
+          path: ${{ env.APK_PATH }}
+          retention-days: 30
+
+      - name: 🏷️ Publicar Release Automático
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Botiquín del Corazón v1.0.${{ github.run_number }}
+          body: |
+            ## ❤️ Botiquín del Corazón - APK Compilado
+            
+            ¡Tu APK ya está listo para descargar e instalar en cualquier teléfono Android!
+            
+            ### ✨ Novedades incluidas:
+            - **Home Widget Android:** Corazón interactivo con la frase diaria y apertura directa al botiquín.
+            - **Doble Capa de Audio con Ducking:** Reproducción de notas de voz sobre fondo ambiental (*lo-fi*, lluvia, piano).
+            - **Motor Háptico "Lub-Dub":** Vibración al ritmo del latido cardíaco.
+            - **100% Offline:** Todo el contenido funciona sin conexión a internet ni servidores externos.
+            
+            ### 📲 Instrucciones de Instalación:
+            1. Descarga el archivo `.apk` adjunto abajo en tu teléfono.
+            2. Pulsa sobre el archivo descargado y selecciona **Instalar**.
+            3. Si Android te lo pide, concede el permiso para **"Instalar aplicaciones de fuentes desconocidas"**.
+            4. Mantén presionada tu pantalla de inicio, selecciona **Widgets** y añade el widget **Botiquín del Corazón**.
+          files: ${{ env.APK_PATH }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

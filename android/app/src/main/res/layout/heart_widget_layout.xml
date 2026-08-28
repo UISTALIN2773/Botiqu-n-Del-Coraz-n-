@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="12dp"
+    android:background="@drawable/widget_bg_card">
+
+    <!-- Heart Icon / Touch Trigger -->
+    <ImageView
+        android:id="@+id/widget_heart_icon"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:src="@drawable/ic_heart"
+        android:contentDescription="Botiquín del Corazón"
+        android:layout_marginBottom="6dp" />
+
+    <!-- Daily Loving Phrase -->
+    <TextView
+        android:id="@+id/widget_quote_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Toca el corazón si necesitas un abrazo hoy."
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:textColor="#0F172A"
+        android:gravity="center"
+        android:maxLines="3"
+        android:ellipsize="end" />
+
+    <!-- Subtitle / Author -->
+    <TextView
+        android:id="@+id/widget_author_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="— Tu persona favorita"
+        android:textSize="9sp"
+        android:textColor="#64748B"
+        android:layout_marginTop="3dp"
+        android:gravity="center" />
+
+</LinearLayout>
