@@ -7,6 +7,7 @@ import {
   TextInput,
   TouchableOpacity,
   Switch,
+  Modal,
 } from 'react-native';
 import { storageService } from '../modules/storageService';
 import { WidgetBridge } from '../modules/widgetBridge';
@@ -26,10 +27,15 @@ export const SettingsScreen: React.FC = () => {
   const [pinCode, setPinCode] = useState<string>(currentPrefs.pinCode);
   const [saveMessage, setSaveMessage] = useState<string>('');
 
+  // Backup / Restore Modal State
+  const [isBackupModalVisible, setIsBackupModalVisible] = useState<boolean>(false);
+  const [backupText, setBackupText] = useState<string>('');
+  const [backupNotice, setBackupNotice] = useState<string>('');
+
   const themes = [
     { key: 'minimal_clean', name: 'Minimal Clean', desc: 'Blanco puro y rojo cereza' },
     { key: 'rose_gold', name: 'Rose Gold Romance', desc: 'Tonos rosados y dorados' },
-    { key: 'midnight_star', name: 'Midnight Star', desc: 'Índigo oscuro nocturno' },
+    { key: 'midnight_star', name: 'OLED Black 🌙', desc: 'Negro puro #000000 para no deslumbrar' },
     { key: 'cozy_warmth', name: 'Cozy Warmth', desc: 'Ámbar cálido y papel artesanal' },
   ];
 
@@ -61,11 +67,30 @@ export const SettingsScreen: React.FC = () => {
     setTimeout(() => setSaveMessage(''), 3500);
   };
 
+  const handleOpenExport = () => {
+    const json = storageService.exportDataJSON();
+    setBackupText(json);
+    setBackupNotice('Copia y guarda este texto en tus notas para no perder nada si cambias de móvil.');
+    setIsBackupModalVisible(true);
+  };
+
+  const handleImport = () => {
+    if (!backupText.trim()) return;
+    const success = storageService.importDataJSON(backupText);
+    if (success) {
+      HapticsService.triggerSuccessFeedback();
+      setBackupNotice('¡Respaldo restaurado con éxito!');
+      setTimeout(() => setIsBackupModalVisible(false), 1500);
+    } else {
+      setBackupNotice('Error: Formato de respaldo JSON no válido.');
+    }
+  };
+
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.container}>
       <Text style={styles.heading}>Personalización & Ajustes ⚙️</Text>
       <Text style={styles.subheading}>
-        Configura los nombres, fechas, estilo visual y audios para tu pareja.
+        Configura los nombres, fechas, estilo visual, respaldo y temas para tu pareja.
       </Text>
 
       {/* 1. Nombres y Fechas de Pareja */}
@@ -109,9 +134,9 @@ export const SettingsScreen: React.FC = () => {
         />
       </View>
 
-      {/* 2. Temas Visuales */}
+      {/* 2. Temas Visuales con OLED Black */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Tema Visual de la Aplicación</Text>
+        <Text style={styles.cardTitle}>Tema Visual & Modo Nocturno</Text>
         <View style={styles.themesGrid}>
           {themes.map((t) => {
             const isSelected = selectedTheme === t.key;
@@ -160,9 +185,12 @@ export const SettingsScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* 4. Intensidad Háptica */}
+      {/* 4. Intensidad Háptica con Protección Térmica */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Fuerza de Latido (Hápticos)</Text>
+        <Text style={styles.sublabel}>
+          Incluye apagado térmico automático a los 15 minutos en el simulador para cuidar la batería.
+        </Text>
         <View style={styles.hapticRow}>
           {(['suave', 'normal', 'fuerte', 'desactivado'] as const).map((level) => {
             const isSelected = hapticStrength === level;
@@ -192,7 +220,7 @@ export const SettingsScreen: React.FC = () => {
           <View style={{ flex: 1, marginRight: 10 }}>
             <Text style={styles.cardTitle}>Bloqueo por PIN de Privacidad</Text>
             <Text style={styles.sublabel}>
-              Protege el baúl y notas íntimas con clave de 4 dígitos. El widget seguirá disponible para emergencias.
+              Protege el baúl y notas íntimas con clave de 4 dígitos.
             </Text>
           </View>
           <Switch
@@ -222,6 +250,21 @@ export const SettingsScreen: React.FC = () => {
         )}
       </View>
 
+      {/* 6. Respaldo y Exportación Local */}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Respaldo de Recuerdos (.json) 💾</Text>
+        <Text style={styles.sublabel}>
+          Exporta o restaura tus cartas y metas para no perder nada al cambiar de celular.
+        </Text>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={handleOpenExport}
+          style={styles.backupBtn}
+        >
+          <Text style={styles.backupBtnText}>Exportar o Restaurar Respaldo</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Save Button */}
       <TouchableOpacity
         activeOpacity={0.85}
@@ -233,16 +276,40 @@ export const SettingsScreen: React.FC = () => {
 
       {saveMessage ? <Text style={styles.saveMsgText}>{saveMessage}</Text> : null}
 
-      {/* Audio & WhatsApp Guide Card */}
-      <View style={styles.guideCard}>
-        <Text style={styles.guideIcon}>🎙️</Text>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.guideTitle}>Audios y Notas de WhatsApp</Text>
-          <Text style={styles.guideText}>
-            Puedes añadir cartas y audios desde el Baúl de Recuerdos con el botón "+ Crear". Las notas de voz que envíes por WhatsApp también pueden guardarse en la memoria del teléfono para reproducirse sin internet.
-          </Text>
+      {/* Backup Modal */}
+      <Modal visible={isBackupModalVisible} transparent animationType="slide">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Copia de Seguridad de Recuerdos</Text>
+            <Text style={styles.modalSub}>{backupNotice}</Text>
+
+            <TextInput
+              value={backupText}
+              onChangeText={setBackupText}
+              multiline
+              numberOfLines={8}
+              style={styles.backupTextArea}
+              placeholder="Pega aquí tu código JSON de respaldo..."
+              placeholderTextColor="#94A3B8"
+            />
+
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                onPress={() => setIsBackupModalVisible(false)}
+                style={styles.modalCancelBtn}
+              >
+                <Text style={styles.modalCancelText}>Cerrar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleImport}
+                style={styles.modalImportBtn}
+              >
+                <Text style={styles.modalImportText}>Restaurar Datos</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
-      </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -381,6 +448,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  backupBtn: {
+    backgroundColor: '#F1F5F9',
+    borderRadius: 14,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  backupBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+  },
   saveBtn: {
     width: '100%',
     paddingVertical: 14,
@@ -401,28 +480,63 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
   },
-  guideCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 18,
-    padding: 14,
-    marginTop: 16,
-    marginBottom: 24,
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    padding: 20,
   },
-  guideIcon: {
-    fontSize: 26,
-    marginRight: 12,
+  modalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
   },
-  guideTitle: {
-    fontSize: 12,
+  modalTitle: {
+    fontSize: 16,
     fontWeight: '800',
-    color: '#334155',
+    color: '#0F172A',
   },
-  guideText: {
-    fontSize: 11,
+  modalSub: {
+    fontSize: 12,
     color: '#64748B',
-    marginTop: 2,
-    lineHeight: 15,
+    marginVertical: 6,
+    lineHeight: 16,
+  },
+  backupTextArea: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 14,
+    padding: 12,
+    fontSize: 11,
+    height: 140,
+    textAlignVertical: 'top',
+    fontFamily: 'monospace',
+  },
+  modalBtnRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 14,
+  },
+  modalCancelBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginRight: 8,
+  },
+  modalCancelText: {
+    color: '#64748B',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  modalImportBtn: {
+    backgroundColor: '#E11D48',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 14,
+  },
+  modalImportText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13,
   },
 });

@@ -28,11 +28,23 @@ class HeartWidgetModule(private val reactContext: ReactApplicationContext) :
                 apply()
             }
 
-            // Notify Widget Manager to refresh UI immediately
-            val intent = Intent(reactContext, HeartWidgetProvider::class.java).apply {
-                action = HeartWidgetProvider.ACTION_REFRESH
+            // Force immediate widget redraw on Android 12+
+            val appWidgetManager = AppWidgetManager.getInstance(reactContext)
+            val ids = appWidgetManager.getAppWidgetIds(
+                ComponentName(reactContext, HeartWidgetProvider::class.java)
+            )
+
+            // Direct update call
+            for (appWidgetId in ids) {
+                HeartWidgetProvider.updateAppWidget(reactContext, appWidgetManager, appWidgetId)
             }
-            reactContext.sendBroadcast(intent)
+
+            // Broadcast explicit update for Launcher redraw
+            val updateIntent = Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE).apply {
+                component = ComponentName(reactContext, HeartWidgetProvider::class.java)
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+            }
+            reactContext.sendBroadcast(updateIntent)
 
             promise.resolve(true)
         } catch (e: Exception) {

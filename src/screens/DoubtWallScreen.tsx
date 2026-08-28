@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Modal,
 } from 'react-native';
 import { DoubtItem } from '../config/database';
 import { storageService } from '../modules/storageService';
@@ -15,6 +16,10 @@ export const DoubtWallScreen: React.FC = () => {
   const doubts = storageService.getDoubtItems();
   const [expandedId, setExpandedId] = useState<string | null>(doubts[0]?.id || null);
   const [playingId, setPlayingId] = useState<string | null>(null);
+  const [isRoutineModalVisible, setIsRoutineModalVisible] = useState<boolean>(false);
+
+  const routine = storageService.getCurrentRoutineStatus();
+  const prefs = storageService.getPreferences();
 
   const handleToggle = (id: string) => {
     HapticsService.triggerSoftFeedback();
@@ -39,6 +44,25 @@ export const DoubtWallScreen: React.FC = () => {
       <Text style={styles.subheading}>
         Para esos momentos en los que tu cabeza te hace sobrepensar y necesitas recordar la verdad.
       </Text>
+
+      {/* Button: ¿Dónde está ahora mi amor? (Horario de rutina habitual sin GPS) */}
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => {
+          HapticsService.triggerSoftFeedback();
+          setIsRoutineModalVisible(true);
+        }}
+        style={styles.routineBanner}
+      >
+        <Text style={styles.routineIcon}>🕒</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.routineTitle}>¿Dónde está {prefs.senderName} ahora?</Text>
+          <Text style={styles.routineSub}>
+            Toca para ver qué suele estar haciendo según la hora del día.
+          </Text>
+        </View>
+        <Text style={styles.routineArrow}>➔</Text>
+      </TouchableOpacity>
 
       {doubts.map((item) => {
         const isExpanded = expandedId === item.id;
@@ -86,6 +110,31 @@ export const DoubtWallScreen: React.FC = () => {
           </View>
         );
       })}
+
+      {/* Routine Info Modal */}
+      <Modal visible={isRoutineModalVisible} transparent animationType="fade">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalIcon}>{routine.icon}</Text>
+            <Text style={styles.modalTitle}>Horario Habitual de {prefs.senderName}</Text>
+            <Text style={styles.modalStatus}>{routine.status}</Text>
+            <Text style={styles.modalDesc}>{routine.subtext}</Text>
+
+            <View style={styles.peaceNote}>
+              <Text style={styles.peaceNoteText}>
+                ❤️ "Si tardo en responderte, es por mis actividades del día, jamás porque me haya alejado de ti. Apenas tenga un respiro, te escribiré."
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              onPress={() => setIsRoutineModalVisible(false)}
+              style={styles.modalCloseBtn}
+            >
+              <Text style={styles.modalCloseBtnText}>Entendido, me quedo en paz ❤️</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -107,6 +156,36 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     fontWeight: '500',
     lineHeight: 18,
+  },
+  routineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F9FF',
+    borderRadius: 20,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+  },
+  routineIcon: {
+    fontSize: 26,
+    marginRight: 12,
+  },
+  routineTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0369A1',
+  },
+  routineSub: {
+    fontSize: 11,
+    color: '#0284C7',
+    marginTop: 1,
+  },
+  routineArrow: {
+    fontSize: 16,
+    color: '#0284C7',
+    fontWeight: '800',
+    marginLeft: 6,
   },
   card: {
     backgroundColor: '#FFFFFF',
@@ -188,5 +267,67 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+    alignItems: 'center',
+  },
+  modalIcon: {
+    fontSize: 40,
+    marginBottom: 8,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  modalStatus: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0284C7',
+    marginTop: 4,
+  },
+  modalDesc: {
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'center',
+    marginTop: 4,
+    lineHeight: 17,
+  },
+  peaceNote: {
+    backgroundColor: '#FFF1F2',
+    borderRadius: 16,
+    padding: 14,
+    marginVertical: 16,
+    borderWidth: 1,
+    borderColor: '#FFE4E6',
+  },
+  peaceNoteText: {
+    fontSize: 12,
+    color: '#9F1239',
+    fontStyle: 'italic',
+    lineHeight: 18,
+    textAlign: 'center',
+  },
+  modalCloseBtn: {
+    backgroundColor: '#E11D48',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 18,
+    width: '100%',
+    alignItems: 'center',
+  },
+  modalCloseBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 13,
   },
 });

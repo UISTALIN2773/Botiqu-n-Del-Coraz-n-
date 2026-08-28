@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Modal,
+  Animated,
 } from 'react-native';
 import { TimeCapsuleItem } from '../config/database';
 import { storageService } from '../modules/storageService';
@@ -16,12 +17,29 @@ export const TimeCapsulesScreen: React.FC = () => {
   const [capsules, setCapsules] = useState<TimeCapsuleItem[]>(storageService.getTimeCapsules());
   const [selectedCapsule, setSelectedCapsule] = useState<TimeCapsuleItem | null>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [isUnsealing, setIsUnsealing] = useState<boolean>(false);
+
+  const sealScaleAnim = useRef(new Animated.Value(1)).current;
+  const paperOpacityAnim = useRef(new Animated.Value(0)).current;
 
   const handleOpenCapsule = (item: TimeCapsuleItem) => {
-    HapticsService.triggerSuccessFeedback();
-    storageService.openTimeCapsule(item.id);
-    setCapsules([...storageService.getTimeCapsules()]);
+    HapticsService.triggerHeartbeat();
     setSelectedCapsule(item);
+    setIsUnsealing(true);
+    sealScaleAnim.setValue(1);
+    paperOpacityAnim.setValue(0);
+
+    // Wax seal cracking animation
+    Animated.sequence([
+      Animated.timing(sealScaleAnim, { toValue: 1.3, duration: 250, useNativeDriver: true }),
+      Animated.timing(sealScaleAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.timing(paperOpacityAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+    ]).start(() => {
+      setIsUnsealing(false);
+      HapticsService.triggerSuccessFeedback();
+      storageService.openTimeCapsule(item.id);
+      setCapsules([...storageService.getTimeCapsules()]);
+    });
   };
 
   const handlePlayVoice = () => {
@@ -74,37 +92,48 @@ export const TimeCapsulesScreen: React.FC = () => {
         ))}
       </View>
 
-      {/* Letter Reading Modal */}
+      {/* Letter Reading Modal with Wax Breaking Animation */}
       <Modal visible={!!selectedCapsule} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
-          <View style={styles.letterPaper}>
-            <View style={styles.letterHeader}>
-              <Text style={styles.letterIcon}>{selectedCapsule?.sealIcon}</Text>
-              <Text style={styles.letterTitle}>{selectedCapsule?.title}</Text>
-              <TouchableOpacity onPress={handleCloseModal} style={styles.closeBtn}>
-                <Text style={styles.closeBtnText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.letterBody} showsVerticalScrollIndicator={false}>
-              <Text style={styles.conditionText}>
-                Condición: {selectedCapsule?.unlockCondition}
-              </Text>
-              <Text style={styles.letterContent}>"{selectedCapsule?.content}"</Text>
-
-              {selectedCapsule?.voiceFilename && (
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  onPress={handlePlayVoice}
-                  style={[styles.voiceBtn, isPlaying && styles.voiceBtnActive]}
-                >
-                  <Text style={styles.voiceBtnText}>
-                    {isPlaying ? '⏸ Pausar Audio' : '▶ Escuchar mi nota de voz'}
-                  </Text>
+          {isUnsealing ? (
+            /* Cracking Wax Animation */
+            <Animated.View style={[styles.crackingContainer, { transform: [{ scale: sealScaleAnim }] }]}>
+              <View style={styles.giantSeal}>
+                <Text style={styles.giantSealIcon}>{selectedCapsule?.sealIcon}</Text>
+              </View>
+              <Text style={styles.crackingText}>Rompiendo sello de cera...</Text>
+            </Animated.View>
+          ) : (
+            /* Unfolded Letter Paper */
+            <Animated.View style={[styles.letterPaper, { opacity: paperOpacityAnim }]}>
+              <View style={styles.letterHeader}>
+                <Text style={styles.letterIcon}>{selectedCapsule?.sealIcon}</Text>
+                <Text style={styles.letterTitle}>{selectedCapsule?.title}</Text>
+                <TouchableOpacity onPress={handleCloseModal} style={styles.closeBtn}>
+                  <Text style={styles.closeBtnText}>✕</Text>
                 </TouchableOpacity>
-              )}
-            </ScrollView>
-          </View>
+              </View>
+
+              <ScrollView style={styles.letterBody} showsVerticalScrollIndicator={false}>
+                <Text style={styles.conditionText}>
+                  Condición: {selectedCapsule?.unlockCondition}
+                </Text>
+                <Text style={styles.letterContent}>"{selectedCapsule?.content}"</Text>
+
+                {selectedCapsule?.voiceFilename && (
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={handlePlayVoice}
+                    style={[styles.voiceBtn, isPlaying && styles.voiceBtnActive]}
+                  >
+                    <Text style={styles.voiceBtnText}>
+                      {isPlaying ? '⏸ Pausar Audio' : '▶ Escuchar mi nota de voz'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </ScrollView>
+            </Animated.View>
+          )}
         </View>
       </Modal>
     </ScrollView>
@@ -144,10 +173,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#FED7AA',
     elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
   },
   envelopeCardOpened: {
     backgroundColor: '#FFFFFF',
@@ -202,9 +227,32 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.65)',
     justifyContent: 'center',
     padding: 20,
+  },
+  crackingContainer: {
+    alignItems: 'center',
+  },
+  giantSeal: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: '#DC2626',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 10,
+    borderWidth: 3,
+    borderColor: '#FCA5A5',
+  },
+  giantSealIcon: {
+    fontSize: 44,
+  },
+  crackingText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginTop: 16,
   },
   letterPaper: {
     backgroundColor: '#FFFDF9',

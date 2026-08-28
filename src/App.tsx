@@ -40,6 +40,9 @@ export default function App() {
   const [isTimeCapsulesVisible, setIsTimeCapsulesVisible] = useState<boolean>(false);
   const [isFutureTreeVisible, setIsFutureTreeVisible] = useState<boolean>(false);
 
+  // Shake-to-Calm secret message modal
+  const [isSecretMessageVisible, setIsSecretMessageVisible] = useState<boolean>(false);
+
   useEffect(() => {
     WidgetBridge.updateWidgetData(popupMood);
 
@@ -75,6 +78,7 @@ export default function App() {
     return () => {
       subscription.remove();
       audioEngine.stopAll();
+      HapticsService.stopPresence();
     };
   }, []);
 
@@ -99,15 +103,24 @@ export default function App() {
     }
   };
 
+  const triggerShakeToCalm = () => {
+    HapticsService.triggerHeartbeat();
+    setIsSecretMessageVisible(true);
+    audioEngine.playDualTrack('voice_te_extrano_01.wav', 'lofi');
+  };
+
   const prefs = storageService.getPreferences();
+  const isOLED = prefs.themeName === 'midnight_star';
+  const bgColor = isOLED ? '#000000' : '#FFFFFF';
+  const textColor = isOLED ? '#F59E0B' : '#0F172A';
 
   // If locked by PIN
   if (isLocked) {
     return (
-      <SafeAreaView style={styles.lockedContainer}>
-        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <SafeAreaView style={[styles.lockedContainer, { backgroundColor: bgColor }]}>
+        <StatusBar barStyle={isOLED ? 'light-content' : 'dark-content'} backgroundColor={bgColor} />
         <Text style={styles.lockedHeartIcon}>🔒</Text>
-        <Text style={styles.lockedHeading}>Baúl Protegido</Text>
+        <Text style={[styles.lockedHeading, { color: textColor }]}>Baúl Protegido</Text>
         <Text style={styles.lockedSub}>
           Ingresa el código PIN para acceder a tus recuerdos privados.
         </Text>
@@ -118,7 +131,7 @@ export default function App() {
           keyboardType="numeric"
           maxLength={4}
           secureTextEntry
-          style={styles.pinInput}
+          style={[styles.pinInput, isOLED && { backgroundColor: '#18181B', color: '#F59E0B', borderColor: '#3F3F46' }]}
           placeholder="••••"
           placeholderTextColor="#94A3B8"
           autoFocus
@@ -155,8 +168,8 @@ export default function App() {
   }
 
   return (
-    <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+    <SafeAreaView style={[styles.root, { backgroundColor: bgColor }]}>
+      <StatusBar barStyle={isOLED ? 'light-content' : 'dark-content'} backgroundColor={bgColor} />
 
       {/* Screen View Switcher */}
       <View style={styles.content}>
@@ -176,6 +189,15 @@ export default function App() {
         {activeTab === 'settings' && <SettingsScreen />}
       </View>
 
+      {/* Shake-to-Calm Floating Shortcut Button */}
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={triggerShakeToCalm}
+        style={[styles.shakeFab, { backgroundColor: prefs.widgetColor || '#E11D48' }]}
+      >
+        <Text style={styles.shakeFabText}>✨</Text>
+      </TouchableOpacity>
+
       {/* Persistent Bottom Tab Bar */}
       <BottomTabBar
         activeTab={activeTab}
@@ -191,19 +213,42 @@ export default function App() {
         onOpenFullApp={() => setIsQuickPopupVisible(false)}
       />
 
+      {/* Shake-to-Calm Secret Message Modal */}
+      <Modal visible={isSecretMessageVisible} transparent animationType="fade">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.secretCard}>
+            <Text style={styles.secretIcon}>✨💌✨</Text>
+            <Text style={styles.secretTitle}>¡Mensaje Secreto Inesperado!</Text>
+            <Text style={styles.secretText}>
+              "Si abriste esto por sorpresa, solo quiero recordarte algo muy sencillo: Eres la persona más maravillosa que conozco. No dejes que las dudas te apaguen el brillo. Te amo con todo mi ser."
+            </Text>
+            <Text style={styles.secretAuthor}>— Con todo mi amor, {prefs.senderName} ❤️</Text>
+            <TouchableOpacity
+              onPress={() => {
+                audioEngine.stopAll();
+                setIsSecretMessageVisible(false);
+              }}
+              style={[styles.secretCloseBtn, { backgroundColor: prefs.widgetColor || '#E11D48' }]}
+            >
+              <Text style={styles.secretCloseBtnText}>Guardar en mi Corazón</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* Modal 1: Panic SOS Grounding */}
       <Modal visible={isSOSVisible} animationType="slide">
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: bgColor }}>
           <PanicSOSScreen onClose={() => setIsSOSVisible(false)} />
         </SafeAreaView>
       </Modal>
 
       {/* Modal 2: Doubt Wall */}
       <Modal visible={isDoubtWallVisible} animationType="slide">
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-          <View style={styles.modalHeaderClose}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: bgColor }}>
+          <View style={[styles.modalHeaderClose, isOLED && { backgroundColor: '#121212', borderBottomColor: '#27272A' }]}>
             <TouchableOpacity onPress={() => setIsDoubtWallVisible(false)} style={styles.closeBackBtn}>
-              <Text style={styles.closeBackText}>← Volver</Text>
+              <Text style={[styles.closeBackText, isOLED && { color: '#F59E0B' }]}>← Volver</Text>
             </TouchableOpacity>
           </View>
           <DoubtWallScreen />
@@ -212,10 +257,10 @@ export default function App() {
 
       {/* Modal 3: Time Capsules */}
       <Modal visible={isTimeCapsulesVisible} animationType="slide">
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-          <View style={styles.modalHeaderClose}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: bgColor }}>
+          <View style={[styles.modalHeaderClose, isOLED && { backgroundColor: '#121212', borderBottomColor: '#27272A' }]}>
             <TouchableOpacity onPress={() => setIsTimeCapsulesVisible(false)} style={styles.closeBackBtn}>
-              <Text style={styles.closeBackText}>← Volver</Text>
+              <Text style={[styles.closeBackText, isOLED && { color: '#F59E0B' }]}>← Volver</Text>
             </TouchableOpacity>
           </View>
           <TimeCapsulesScreen />
@@ -224,10 +269,10 @@ export default function App() {
 
       {/* Modal 4: Future Tree */}
       <Modal visible={isFutureTreeVisible} animationType="slide">
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-          <View style={styles.modalHeaderClose}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: bgColor }}>
+          <View style={[styles.modalHeaderClose, isOLED && { backgroundColor: '#121212', borderBottomColor: '#27272A' }]}>
             <TouchableOpacity onPress={() => setIsFutureTreeVisible(false)} style={styles.closeBackBtn}>
-              <Text style={styles.closeBackText}>← Volver</Text>
+              <Text style={[styles.closeBackText, isOLED && { color: '#F59E0B' }]}>← Volver</Text>
             </TouchableOpacity>
           </View>
           <FutureTreeScreen />
@@ -244,6 +289,24 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  shakeFab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 80,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+  },
+  shakeFabText: {
+    fontSize: 22,
   },
   modalHeaderClose: {
     paddingHorizontal: 16,
@@ -322,5 +385,53 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#E11D48',
     fontWeight: '700',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  secretCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+  },
+  secretIcon: {
+    fontSize: 32,
+    marginBottom: 10,
+  },
+  secretTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#0F172A',
+    marginBottom: 8,
+  },
+  secretText: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#334155',
+    textAlign: 'center',
+    fontStyle: 'italic',
+    marginBottom: 12,
+  },
+  secretAuthor: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#E11D48',
+    marginBottom: 18,
+  },
+  secretCloseBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 18,
+    width: '100%',
+    alignItems: 'center',
+  },
+  secretCloseBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 13,
   },
 });

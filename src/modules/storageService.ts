@@ -155,6 +155,75 @@ class StorageService {
     this.lastCapsuleDate = new Date().toISOString().split('T')[0];
     this.capsuleUnlockedToday = true;
   }
+
+  // --- BACKUP & RESTORE ---
+  public exportDataJSON(): string {
+    const backup = {
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      preferences: this.preferences,
+      memories: this.memories,
+      futureGoals: this.futureGoals,
+      timeCapsules: this.timeCapsules,
+    };
+    return JSON.stringify(backup, null, 2);
+  }
+
+  public importDataJSON(jsonStr: string): boolean {
+    try {
+      const data = JSON.parse(jsonStr);
+      if (data.preferences) this.preferences = { ...this.preferences, ...data.preferences };
+      if (Array.isArray(data.memories)) this.memories = data.memories;
+      if (Array.isArray(data.futureGoals)) this.futureGoals = data.futureGoals;
+      if (Array.isArray(data.timeCapsules)) this.timeCapsules = data.timeCapsules;
+      return true;
+    } catch (e) {
+      console.warn('[Storage] Import failed:', e);
+      return false;
+    }
+  }
+
+  // --- SCHEDULE STATUS (NON-INVASIVE ROUTINE) ---
+  public getCurrentRoutineStatus(): { status: string; subtext: string; icon: string } {
+    const hour = new Date().getHours();
+    if (hour >= 0 && hour < 7) {
+      return {
+        status: 'Durmiendo o descansando',
+        subtext: 'Probablemente esté durmiendo soñando contigo. En cuanto despierte te leerá ❤️',
+        icon: '🌙',
+      };
+    } else if (hour >= 7 && hour < 9) {
+      return {
+        status: 'Despertando y alistándose',
+        subtext: 'Tomando desayuno o en camino a sus actividades diarias.',
+        icon: '☕',
+      };
+    } else if (hour >= 9 && hour < 13) {
+      return {
+        status: 'En horario de trabajo / clases matutinas',
+        subtext: 'Concentrado/a en sus pendientes laborales o de estudio.',
+        icon: '💻',
+      };
+    } else if (hour >= 13 && hour < 15) {
+      return {
+        status: 'Hora de almuerzo',
+        subtext: 'Comiendo algo rico y tomándose un respiro.',
+        icon: '🥗',
+      };
+    } else if (hour >= 15 && hour < 19) {
+      return {
+        status: 'Actividades de la tarde',
+        subtext: 'Terminando pendientes del día o en camino a casa.',
+        icon: '🚗',
+      };
+    } else {
+      return {
+        status: 'Tiempo libre / Cena y descanso',
+        subtext: 'Relajándose en casa después de una larga jornada.',
+        icon: '🛋️',
+      };
+    }
+  }
 }
 
 export const storageService = StorageService.getInstance();

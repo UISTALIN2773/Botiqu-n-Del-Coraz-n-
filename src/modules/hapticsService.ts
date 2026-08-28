@@ -8,6 +8,9 @@ const hapticOptions = {
 };
 
 export class HapticsService {
+  private static presenceTimer: NodeJS.Timeout | null = null;
+  private static presenceSafetyTimeout: NodeJS.Timeout | null = null;
+
   /**
    * Heartbeat rhythm: "Lub-Dub"
    */
@@ -16,41 +19,67 @@ export class HapticsService {
     if (strength === 'desactivado') return;
 
     if (Platform.OS === 'android') {
-      let pattern = [0, 60, 100, 110];
+      let pattern = [0, 45, 80, 85];
       if (strength === 'suave') {
-        pattern = [0, 35, 120, 60];
+        pattern = [0, 25, 90, 40];
       } else if (strength === 'fuerte') {
-        pattern = [0, 90, 80, 160];
+        pattern = [0, 70, 70, 120];
       }
       try {
         Vibration.vibrate(pattern, false);
       } catch (e) {
-        console.warn('[Haptics] Vibration warning:', e);
+        console.warn('[Haptics] Vibration notice:', e);
       }
     } else {
       try {
         ReactNativeHapticFeedback.trigger('impactHeavy', hapticOptions);
         setTimeout(() => {
           ReactNativeHapticFeedback.trigger('impactRigid', hapticOptions);
-        }, 160);
-      } catch (e) {
-        console.warn('[Haptics] iOS haptic error:', e);
-      }
+        }, 150);
+      } catch {}
     }
   }
 
   /**
-   * Continuous heartbeat pulsing (repeats 3 times)
+   * Safe Presence Simulator ("Dormir en mi Pecho")
+   * Uses ultra-light micro-pulses (20ms) to protect battery and hardware.
+   * Auto-stops vibration after 15 minutes of inactivity for thermal safety.
    */
-  public static triggerTripleHeartbeat() {
-    let count = 0;
-    const interval = setInterval(() => {
-      HapticsService.triggerHeartbeat();
-      count++;
-      if (count >= 3) {
-        clearInterval(interval);
-      }
-    }, 850);
+  public static startSafePresence(onSafetyAutoStop?: () => void) {
+    HapticsService.stopPresence();
+
+    const strength = storageService.getPreferences().hapticStrength;
+    if (strength === 'desactivado') return;
+
+    // Pulse every 950ms
+    HapticsService.presenceTimer = setInterval(() => {
+      try {
+        if (Platform.OS === 'android') {
+          // Minimal pulse to avoid coil heat
+          Vibration.vibrate(22);
+        } else {
+          ReactNativeHapticFeedback.trigger('impactLight', hapticOptions);
+        }
+      } catch {}
+    }, 950);
+
+    // 15-Minute Thermal & Battery Safety Cutoff
+    HapticsService.presenceSafetyTimeout = setTimeout(() => {
+      HapticsService.stopPresence();
+      onSafetyAutoStop?.();
+      console.log('[Haptics] Presence vibration paused automatically for thermal protection.');
+    }, 15 * 60 * 1000);
+  }
+
+  public static stopPresence() {
+    if (HapticsService.presenceTimer) {
+      clearInterval(HapticsService.presenceTimer);
+      HapticsService.presenceTimer = null;
+    }
+    if (HapticsService.presenceSafetyTimeout) {
+      clearTimeout(HapticsService.presenceSafetyTimeout);
+      HapticsService.presenceSafetyTimeout = null;
+    }
   }
 
   /**
@@ -62,7 +91,7 @@ export class HapticsService {
 
     try {
       if (Platform.OS === 'android') {
-        Vibration.vibrate(40);
+        Vibration.vibrate(30);
       } else {
         ReactNativeHapticFeedback.trigger('impactLight', hapticOptions);
       }
@@ -75,7 +104,7 @@ export class HapticsService {
 
     try {
       if (Platform.OS === 'android') {
-        Vibration.vibrate(25);
+        Vibration.vibrate(20);
       } else {
         ReactNativeHapticFeedback.trigger('impactLight', hapticOptions);
       }
@@ -88,7 +117,7 @@ export class HapticsService {
 
     try {
       if (Platform.OS === 'android') {
-        Vibration.vibrate([0, 50, 60, 50], false);
+        Vibration.vibrate([0, 35, 45, 35], false);
       } else {
         ReactNativeHapticFeedback.trigger('notificationSuccess', hapticOptions);
       }
