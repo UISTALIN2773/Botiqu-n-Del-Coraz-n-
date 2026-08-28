@@ -3,10 +3,10 @@
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="12dp"
+    android:padding="10dp"
     android:background="@drawable/widget_bg_card">
 
-    <!-- Esquina Superior Derecha: Insignia circular en relieve (floating badge) con icono de corazón carmesí con glow -->
+    <!-- Esquina Superior Derecha: Insignia circular en relieve con icono de corazón carmesí con glow -->
     <FrameLayout
         android:layout_width="26dp"
         android:layout_height="26dp"
@@ -32,8 +32,8 @@
 
         <!-- Zona Superior Central: Contenedor de imagen circular con borde perimetral de 2dp en tono crema -->
         <FrameLayout
-            android:layout_width="52dp"
-            android:layout_height="52dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:background="@drawable/widget_photo_border"
             android:padding="2dp">
 
@@ -53,10 +53,10 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Mi Amor • Día 450 Juntos ❤️"
-            android:textSize="12sp"
+            android:textSize="11sp"
             android:textStyle="bold"
             android:textColor="#FFFFFF"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="4dp"
             android:gravity="center"
             android:maxLines="1"
             android:ellipsize="end" />
@@ -67,34 +67,65 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Tócame si me extrañas o tienes ansiedad"
-            android:textSize="10sp"
+            android:textSize="9sp"
             android:textColor="#E6D5C3"
             android:layout_marginTop="2dp"
             android:gravity="center"
-            android:maxLines="2"
+            android:maxLines="1"
             android:ellipsize="end"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp" />
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp" />
 
-        <!-- Zona Inferior Central: Botón táctil circular elevado con icono ▶ para reproducir audio inmediato sin abrir app -->
+        <!-- Zona Inferior: Fila con Botón Play ▶ y Botón de Pánico 🚨 S.O.S. -->
         <LinearLayout
-            android:id="@+id/widget_play_btn"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:layout_marginTop="6dp"
-            android:background="@drawable/widget_play_btn_bg"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
             android:gravity="center"
-            android:clickable="true"
-            android:focusable="true">
+            android:layout_marginTop="6dp">
 
-            <TextView
-                android:id="@+id/widget_play_icon"
+            <!-- Botón Play ▶ -->
+            <LinearLayout
+                android:id="@+id/widget_play_btn"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/widget_play_btn_bg"
+                android:gravity="center"
+                android:layout_marginEnd="8dp"
+                android:clickable="true"
+                android:focusable="true">
+
+                <TextView
+                    android:id="@+id/widget_play_icon"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="▶"
+                    android:textColor="#FFFFFF"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- Botón de Pánico 🚨 S.O.S. -->
+            <LinearLayout
+                android:id="@+id/widget_sos_btn"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="▶"
-                android:textColor="#FFFFFF"
-                android:textSize="15sp"
-                android:textStyle="bold" />
+                android:layout_height="32dp"
+                android:background="@drawable/widget_sos_btn_bg"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🚨 S.O.S."
+                    android:textColor="#FFFFFF"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
         </LinearLayout>
 
     </LinearLayout>

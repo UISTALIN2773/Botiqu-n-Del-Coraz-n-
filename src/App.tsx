@@ -58,6 +58,16 @@ export default function App() {
     const handleDeepLink = (event: { url: string }) => {
       const url = event.url;
       if (url && url.includes('botiquin://open')) {
+        // Direct S.O.S. Button pressed from Widget
+        if (url.includes('view=sos')) {
+          HapticsService.triggerHeartbeat();
+          setIsSOSVisible(true);
+          if (url.includes('autoplay=true')) {
+            audioEngine.playDualTrack('voice_ansiedad_01.wav', 'rain');
+          }
+          return;
+        }
+
         const moodMatch = url.match(/mood=([a-zA-Z_]+)/);
         const mood = (moodMatch ? moodMatch[1] : 'ansiedad') as MoodType;
         const auto = url.includes('autoplay=true');

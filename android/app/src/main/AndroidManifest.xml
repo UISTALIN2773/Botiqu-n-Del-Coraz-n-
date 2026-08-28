@@ -36,7 +36,7 @@
         </intent-filter>
       </activity>
 
-      <!-- Android Home Screen Widget Receiver -->
+      <!-- Android Home Screen Widget Receiver (Main Heart) -->
       <receiver
           android:name=".widget.HeartWidgetProvider"
           android:label="Botiquín del Corazón"
@@ -48,6 +48,19 @@
           <meta-data
               android:name="android.appwidget.provider"
               android:resource="@xml/heart_widget_info" />
+      </receiver>
+
+      <!-- Android Home Screen Widget Receiver (1-Tap Panic SOS Button) -->
+      <receiver
+          android:name=".widget.PanicWidgetProvider"
+          android:label="🚨 S.O.S. Botón de Pánico"
+          android:exported="true">
+          <intent-filter>
+              <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+          </intent-filter>
+          <meta-data
+              android:name="android.appwidget.provider"
+              android:resource="@xml/panic_widget_info" />
       </receiver>
 
     </application>

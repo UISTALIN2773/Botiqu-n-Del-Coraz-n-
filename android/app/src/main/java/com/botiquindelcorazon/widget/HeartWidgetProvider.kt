@@ -60,10 +60,24 @@ class HeartWidgetProvider : AppWidgetProvider() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
+            // Intent 3: Tap Direct S.O.S. Panic Button -> Immediately opens Panic S.O.S. and plays calming voice
+            val sosIntent = Intent(Intent.ACTION_VIEW, Uri.parse("botiquin://open?view=sos&autoplay=true")).apply {
+                setClass(context, MainActivity::class.java)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+
+            val sosPendingIntent = PendingIntent.getActivity(
+                context,
+                1003,
+                sosIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
             views.setOnClickPendingIntent(R.id.widget_root, popupPendingIntent)
             views.setOnClickPendingIntent(R.id.widget_photo, popupPendingIntent)
             views.setOnClickPendingIntent(R.id.widget_heart_icon, popupPendingIntent)
             views.setOnClickPendingIntent(R.id.widget_play_btn, playPendingIntent)
+            views.setOnClickPendingIntent(R.id.widget_sos_btn, sosPendingIntent)
 
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }
