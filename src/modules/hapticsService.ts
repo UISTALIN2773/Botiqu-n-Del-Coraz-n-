@@ -1,5 +1,6 @@
 import { Vibration, Platform } from 'react-native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
+import { storageService } from './storageService';
 
 const hapticOptions = {
   enableVibrateFallback: true,
@@ -9,23 +10,37 @@ const hapticOptions = {
 export class HapticsService {
   /**
    * Heartbeat rhythm: "Lub-Dub"
-   * Timings in milliseconds: [delay, pulse1, pause, pulse2]
    */
   public static triggerHeartbeat() {
+    const strength = storageService.getPreferences().hapticStrength;
+    if (strength === 'desactivado') return;
+
     if (Platform.OS === 'android') {
-      // Pattern: Wait 0ms, Vibrate 70ms (lub), Wait 100ms, Vibrate 120ms (dub)
-      const heartbeatPattern = [0, 70, 100, 130];
-      Vibration.vibrate(heartbeatPattern, false);
+      let pattern = [0, 60, 100, 110];
+      if (strength === 'suave') {
+        pattern = [0, 35, 120, 60];
+      } else if (strength === 'fuerte') {
+        pattern = [0, 90, 80, 160];
+      }
+      try {
+        Vibration.vibrate(pattern, false);
+      } catch (e) {
+        console.warn('[Haptics] Vibration warning:', e);
+      }
     } else {
-      ReactNativeHapticFeedback.trigger('impactHeavy', hapticOptions);
-      setTimeout(() => {
-        ReactNativeHapticFeedback.trigger('impactRigid', hapticOptions);
-      }, 180);
+      try {
+        ReactNativeHapticFeedback.trigger('impactHeavy', hapticOptions);
+        setTimeout(() => {
+          ReactNativeHapticFeedback.trigger('impactRigid', hapticOptions);
+        }, 160);
+      } catch (e) {
+        console.warn('[Haptics] iOS haptic error:', e);
+      }
     }
   }
 
   /**
-   * Continuous heartbeat pulsing (repeats 3 times for warm greeting)
+   * Continuous heartbeat pulsing (repeats 3 times)
    */
   public static triggerTripleHeartbeat() {
     let count = 0;
@@ -39,16 +54,44 @@ export class HapticsService {
   }
 
   /**
-   * Subtle click feedback when tapping a mood button
+   * Gentle breathing pulse (used during 4-4-4 breathing exercises)
    */
-  public static triggerSoftFeedback() {
-    ReactNativeHapticFeedback.trigger('impactLight', hapticOptions);
+  public static triggerBreathingPulse() {
+    const strength = storageService.getPreferences().hapticStrength;
+    if (strength === 'desactivado') return;
+
+    try {
+      if (Platform.OS === 'android') {
+        Vibration.vibrate(40);
+      } else {
+        ReactNativeHapticFeedback.trigger('impactLight', hapticOptions);
+      }
+    } catch {}
   }
 
-  /**
-   * Gentle success buzz
-   */
+  public static triggerSoftFeedback() {
+    const strength = storageService.getPreferences().hapticStrength;
+    if (strength === 'desactivado') return;
+
+    try {
+      if (Platform.OS === 'android') {
+        Vibration.vibrate(25);
+      } else {
+        ReactNativeHapticFeedback.trigger('impactLight', hapticOptions);
+      }
+    } catch {}
+  }
+
   public static triggerSuccessFeedback() {
-    ReactNativeHapticFeedback.trigger('notificationSuccess', hapticOptions);
+    const strength = storageService.getPreferences().hapticStrength;
+    if (strength === 'desactivado') return;
+
+    try {
+      if (Platform.OS === 'android') {
+        Vibration.vibrate([0, 50, 60, 50], false);
+      } else {
+        ReactNativeHapticFeedback.trigger('notificationSuccess', hapticOptions);
+      }
+    } catch {}
   }
 }

@@ -1,141 +1,159 @@
-export type MoodType = 'ansiedad' | 'te_extrano' | 'mal_dia' | 'reir';
+export type MoodType = 'ansiedad' | 'te_extrano' | 'mal_dia' | 'reir' | 'sorprendeme';
+export type MemoryType = 'audio' | 'foto' | 'carta' | 'mixto';
 
 export interface EmotionalItem {
   id: string;
   mood: MoodType;
+  type: MemoryType;
   title: string;
   subtitle: string;
   note: string;
-  photoUri: string;
-  voiceFilename: string;
-  ambientTrack: 'lofi' | 'rain' | 'piano';
+  date?: string;
+  photoUri?: string;
+  voiceFilename?: string;
+  ambientTrack: 'lofi' | 'rain' | 'piano' | 'waves';
   durationSeconds: number;
+  isFavorite?: boolean;
+  tag: string;
 }
+
+export interface UserPreferences {
+  partnerName: string;
+  senderName: string;
+  anniversaryDate: string; // YYYY-MM-DD
+  widgetColor: string; // Hex
+  widgetStyle: 'corazon_glow' | 'pixel' | 'minimal';
+  hapticStrength: 'suave' | 'normal' | 'fuerte' | 'desactivado';
+  pinCode: string; // empty if no pin
+  isPinEnabled: boolean;
+}
+
+export const DEFAULT_PREFERENCES: UserPreferences = {
+  partnerName: 'Mi Amor',
+  senderName: 'Tu Persona Favorita',
+  anniversaryDate: '2023-01-01',
+  widgetColor: '#E11D48',
+  widgetStyle: 'corazon_glow',
+  hapticStrength: 'normal',
+  pinCode: '',
+  isPinEnabled: false,
+};
 
 export const MOOD_DEFINITIONS: Record<
   MoodType,
-  { label: string; icon: string; color: string; description: string }
+  { label: string; icon: string; color: string; description: string; reassuranceQuote: string }
 > = {
   ansiedad: {
-    label: 'Tengo Ansiedad',
+    label: 'Tengo Ansiedad / Estrés',
     icon: 'ShieldAlert',
-    color: '#38BDF8', // Soft calming cyan
-    description: 'Respira hondo conmigo. Todo va a estar bien.',
+    color: '#0EA5E9', // Calm Ocean Cyan
+    description: 'Respira hondo conmigo. Estoy aquí contigo, estás a salvo.',
+    reassuranceQuote: 'Pon tu mano en el pecho. Siente tu respiración. Este momento difícil es solo una nube pasajera.',
   },
   te_extrano: {
-    label: 'Te Extraño',
+    label: 'Te Extraño Mucho',
     icon: 'HeartHandshake',
-    color: '#FB7185', // Rose pink
-    description: 'La distancia es solo espacio físico. Siempre estoy contigo.',
+    color: '#F43F5E', // Warm Rose
+    description: 'La distancia física no cambia ni un milímetro lo que siento por ti.',
+    reassuranceQuote: 'Cierra los ojos e imagíname abrazándote fuerte. Cada minuto lejos es un minuto menos para vernos.',
   },
   mal_dia: {
     label: 'Tuve un Mal Día',
     icon: 'CloudRain',
-    color: '#F59E0B', // Warm amber
-    description: 'Déjalo ir por hoy. Hiciste lo mejor que pudiste.',
+    color: '#F59E0B', // Golden Sun
+    description: 'Suelta todo lo pesado. Hiciste tu mejor esfuerzo y estoy orgulloso/a de ti.',
+    reassuranceQuote: 'El día ya terminó. Deja que la noche limpie tu mente. Mañana es un nuevo comienzo.',
   },
   reir: {
     label: 'Quiero Reírme',
     icon: 'Sparkles',
-    color: '#10B981', // Emerald green
-    description: 'Aquí tienes una dosis de nuestras tonterías favoritas.',
+    color: '#10B981', // Emerald
+    description: 'Una dosis de nuestras tonterías y momentos más felices.',
+    reassuranceQuote: 'Tu sonrisa es la cosa más hermosa de este mundo, ¡no permitas que nada te la quite!',
+  },
+  sorprendeme: {
+    label: 'Sorpréndeme ✨',
+    icon: 'Gift',
+    color: '#8B5CF6', // Purple Magic
+    description: 'Un mensaje sorpresa sacado directamente del fondo de mi corazón.',
+    reassuranceQuote: 'Un recordatorio espontáneo: Eres lo mejor que me ha pasado en la vida.',
   },
 };
 
-export const EMOTIONAL_DATABASE: EmotionalItem[] = [
-  // --- ANSIEDAD ---
+export const INITIAL_MEMORIES: EmotionalItem[] = [
   {
-    id: 'ansiedad-1',
+    id: 'mem-1',
     mood: 'ansiedad',
-    title: 'Respira conmigo',
-    subtitle: 'Tómate 4 segundos para inhalar',
-    note: 'Cierra los ojos un momento. Escucha mi voz y el sonido suave de fondo. Nada de lo que estás pensando puede lastimarte ahora mismo. Todo tiene solución y vamos a resolverlo paso a paso.',
-    photoUri: 'photo_calm_01',
-    voiceFilename: 'voice_ansiedad_01.mp3',
+    type: 'mixto',
+    title: 'Pausa y Respira Conmigo',
+    subtitle: 'Tómate 4 segundos',
+    note: 'Inhala profundamente... mantén el aire... y suéltalo despacio. No tienes que solucionar todo el mundo hoy. Solo concéntrate en este segundo. Te amo y todo va a salir bien.',
+    date: 'Para cuando te sientas abrumada/o',
+    photoUri: '',
+    voiceFilename: 'voice_ansiedad_01.wav',
     ambientTrack: 'rain',
     durationSeconds: 45,
+    isFavorite: true,
+    tag: 'Calma',
   },
   {
-    id: 'ansiedad-2',
-    mood: 'ansiedad',
-    title: 'Pausa de Emergencia',
-    subtitle: 'Estás a salvo',
-    note: 'Pon tu mano en el pecho y siente tu propio latido. Estás haciendo un trabajo increíble incluso cuando sientes que no. Aquí estoy contigo.',
-    photoUri: 'photo_calm_02',
-    voiceFilename: 'voice_ansiedad_02.mp3',
-    ambientTrack: 'piano',
-    durationSeconds: 50,
-  },
-
-  // --- TE EXTRAÑO ---
-  {
-    id: 'te_extrano-1',
+    id: 'mem-2',
     mood: 'te_extrano',
-    title: 'Un Abrazo a Distancia',
-    subtitle: 'Cuenta regresiva para vernos',
-    note: 'Cada segundo que pasa es un segundo menos para volver a abrazarte. Mira esta foto de cuando estuvimos juntos... esa sonrisa es mi lugar favorito en el mundo.',
-    photoUri: 'photo_love_01',
-    voiceFilename: 'voice_te_extrano_01.mp3',
+    type: 'mixto',
+    title: 'Un Abrazo que Cruza Kilómetros',
+    subtitle: 'Siempre cerquita de ti',
+    note: 'Aunque no pueda darte un abrazo de verdad en este instante, quiero que sepas que eres lo primero en lo que pienso al despertar y lo último antes de dormir.',
+    date: 'Recuerdo especial',
+    photoUri: '',
+    voiceFilename: 'voice_te_extrano_01.wav',
     ambientTrack: 'lofi',
-    durationSeconds: 60,
+    durationSeconds: 58,
+    isFavorite: true,
+    tag: 'Amor',
   },
   {
-    id: 'te_extrano-2',
-    mood: 'te_extrano',
-    title: 'Siempre Contigo',
-    subtitle: 'Ni los kilómetros cambian esto',
-    note: 'Si pudieras escuchar mis pensamientos ahora mismo, sabrías que no sales de mi mente ni un solo instante. Te mando el abrazo más apretado que puedas imaginar.',
-    photoUri: 'photo_love_02',
-    voiceFilename: 'voice_te_extrano_02.mp3',
-    ambientTrack: 'piano',
-    durationSeconds: 55,
-  },
-
-  // --- MAL DÍA ---
-  {
-    id: 'mal_dia-1',
+    id: 'mem-3',
     mood: 'mal_dia',
-    title: 'El día ya terminó',
-    subtitle: 'Descansa tu mente',
-    note: 'Hoy fue pesado, pero fuiste más fuerte que cualquier problema. Suelta los hombros, relaja la mandíbula y deja que el día se vaya. Mañana empezamos de cero.',
-    photoUri: 'photo_sunset_01',
-    voiceFilename: 'voice_mal_dia_01.mp3',
-    ambientTrack: 'lofi',
+    type: 'mixto',
+    title: 'Orgulloso/a de tu valentía',
+    subtitle: 'Hiciste un gran trabajo hoy',
+    note: 'Sé que hoy las cosas no salieron como esperabas, pero no olvides lo fuerte que eres. Tómate una ducha caliente, recuéstate y déjame cuidarte con este audio.',
+    date: 'Refugio emocional',
+    photoUri: '',
+    voiceFilename: 'voice_mal_dia_01.wav',
+    ambientTrack: 'piano',
     durationSeconds: 52,
+    isFavorite: false,
+    tag: 'Ánimo',
   },
   {
-    id: 'mal_dia-2',
-    mood: 'mal_dia',
-    title: 'Orgulloso/a de ti',
-    subtitle: 'Incluso en los días grises',
-    note: 'Los días difíciles son temporales, tu valentía no. Estoy inmensamente orgulloso/a de tu esfuerzo diario.',
-    photoUri: 'photo_sunset_02',
-    voiceFilename: 'voice_mal_dia_02.mp3',
-    ambientTrack: 'rain',
-    durationSeconds: 48,
-  },
-
-  // --- REÍR ---
-  {
-    id: 'reir-1',
+    id: 'mem-4',
     mood: 'reir',
-    title: 'Recuerdo Chistoso',
-    subtitle: '¿Te acuerdas de esto?',
-    note: 'No puedo ver esta foto sin reírme a carcajadas. Dale play al audio para revivir la anécdota más random que nos ha pasado.',
-    photoUri: 'photo_funny_01',
-    voiceFilename: 'voice_reir_01.mp3',
+    type: 'audio',
+    title: '¿Te acuerdas de nuestras risas?',
+    subtitle: 'Prohibido no sonreír',
+    note: 'Cada vez que me acuerdo de lo que pasó ese día me da un ataque de risa. Dale play para revivir el momento.',
+    date: 'Momentos graciosos',
+    photoUri: '',
+    voiceFilename: 'voice_reir_01.wav',
     ambientTrack: 'lofi',
-    durationSeconds: 40,
+    durationSeconds: 42,
+    isFavorite: false,
+    tag: 'Risas',
   },
   {
-    id: 'reir-2',
-    mood: 'reir',
-    title: 'Dosis de Sonrisas',
-    subtitle: 'Prohibido estar serio/a',
-    note: 'Si no te ríes con este audio, te debo una hamburguesa completa con papas. ¡Escúchalo ya!',
-    photoUri: 'photo_funny_02',
-    voiceFilename: 'voice_reir_02.mp3',
-    ambientTrack: 'lofi',
-    durationSeconds: 38,
+    id: 'mem-5',
+    mood: 'ansiedad',
+    type: 'carta',
+    title: 'Carta: Razones por las que estás a salvo',
+    subtitle: 'Léela cuando sientas dudas o miedo',
+    note: '1. Este momento difícil es temporal.\n2. Tienes una fuerza increíble dentro de ti.\n3. Siempre cuentas conmigo sin importar qué pase.\n4. Eres una persona amada, valorada e importante.\n5. Respira, descansa tu mente.',
+    date: 'Carta abierta',
+    photoUri: '',
+    voiceFilename: 'voice_ansiedad_02.wav',
+    ambientTrack: 'piano',
+    durationSeconds: 30,
+    isFavorite: true,
+    tag: 'Cartas',
   },
 ];

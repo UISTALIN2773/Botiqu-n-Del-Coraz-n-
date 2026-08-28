@@ -1,14 +1,15 @@
 import { Platform } from 'react-native';
 import Sound from 'react-native-sound';
 
-// Enable playback in silence mode safely
 try {
   if (Platform.OS === 'ios' && typeof Sound.setCategory === 'function') {
     Sound.setCategory('Playback', true);
   }
 } catch (e) {
-  console.warn('[AudioEngine] Failed to set Sound category:', e);
+  console.warn('[AudioEngine] Category setup note:', e);
 }
+
+export type AmbientTrackType = 'lofi' | 'rain' | 'piano' | 'waves';
 
 export class AudioEngine {
   private static instance: AudioEngine;
@@ -16,6 +17,7 @@ export class AudioEngine {
   private ambientSound: Sound | null = null;
   private isPlayingVoice: boolean = false;
   private isPlayingAmbient: boolean = false;
+  private isLoopMode: boolean = false;
   private playbackInterval: NodeJS.Timeout | null = null;
 
   private constructor() {}
@@ -28,86 +30,98 @@ export class AudioEngine {
   }
 
   /**
-   * Starts dual audio playback: Background ambient loop + Voice message with audio ducking
+   * Starts dual playback: Voice note + Ambient soundscape with ducking
    */
   public async playDualTrack(
-    voiceFileName: string,
-    ambientTrack: 'lofi' | 'rain' | 'piano',
+    voiceFileName?: string,
+    ambientTrack: AmbientTrackType = 'lofi',
     onProgress?: (currentSeconds: number, totalSeconds: number) => void,
     onComplete?: () => void
   ): Promise<void> {
     this.stopAll();
 
-    const cleanVoiceName = voiceFileName.replace(/\.(mp3|wav|m4a|ogg)$/i, '');
+    const cleanVoiceName = voiceFileName ? voiceFileName.replace(/\.(mp3|wav|m4a|ogg)$/i, '') : '';
     const cleanAmbientName = `${ambientTrack}_loop`;
 
     return new Promise((resolve) => {
-      try {
-        // Load Voice Sound
+      // 1. Play Voice
+      if (cleanVoiceName) {
         this.voiceSound = new Sound(cleanVoiceName, Sound.MAIN_BUNDLE, (voiceError) => {
           if (voiceError) {
-            console.warn(
-              `[AudioEngine] Voice file ${cleanVoiceName} not found, using smooth simulation:`,
-              voiceError
-            );
-            this.simulatePlayback(45, onProgress, onComplete);
+            console.warn(`[AudioEngine] Voice file ${cleanVoiceName} fallback simulation:`, voiceError);
+            this.simulatePlayback(40, onProgress, onComplete);
             resolve();
             return;
           }
 
-          // Voice loaded successfully -> Load Ambient Track
-          try {
-            this.ambientSound = new Sound(cleanAmbientName, Sound.MAIN_BUNDLE, (ambientError) => {
-              if (ambientError) {
-                console.warn(`[AudioEngine] Ambient track ${cleanAmbientName} not loaded:`, ambientError);
-              } else if (this.ambientSound) {
-                this.ambientSound.setNumberOfLoops(-1);
-                this.ambientSound.setVolume(0.18);
-                this.ambientSound.play();
-                this.isPlayingAmbient = true;
-              }
+          // 2. Play Ambient Soundscape
+          this.ambientSound = new Sound(cleanAmbientName, Sound.MAIN_BUNDLE, (ambientError) => {
+            if (!ambientError && this.ambientSound) {
+              this.ambientSound.setNumberOfLoops(-1);
+              this.ambientSound.setVolume(0.18);
+              this.ambientSound.play();
+              this.isPlayingAmbient = true;
+            }
 
-              if (this.voiceSound) {
-                this.voiceSound.setVolume(1.0);
-                this.isPlayingVoice = true;
+            if (this.voiceSound) {
+              this.voiceSound.setVolume(1.0);
+              this.isPlayingVoice = true;
 
-                const duration = this.voiceSound.getDuration();
+              const duration = this.voiceSound.getDuration();
 
-                this.playbackInterval = setInterval(() => {
-                  if (this.voiceSound && this.isPlayingVoice) {
-                    this.voiceSound.getCurrentTime((seconds) => {
-                      onProgress?.(Math.floor(seconds), Math.floor(duration));
-                    });
-                  }
-                }, 500);
+              this.playbackInterval = setInterval(() => {
+                if (this.voiceSound && this.isPlayingVoice) {
+                  this.voiceSound.getCurrentTime((seconds) => {
+                    onProgress?.(Math.floor(seconds), Math.floor(duration));
+                  });
+                }
+              }, 400);
 
-                this.voiceSound.play((success) => {
-                  this.isPlayingVoice = false;
-                  if (this.playbackInterval) {
-                    clearInterval(this.playbackInterval);
-                    this.playbackInterval = null;
-                  }
+              this.voiceSound.play((success) => {
+                this.isPlayingVoice = false;
+                if (this.playbackInterval) {
+                  clearInterval(this.playbackInterval);
+                  this.playbackInterval = null;
+                }
 
+                if (!this.isLoopMode) {
                   this.fadeOutAmbient(1500);
+                }
 
-                  if (success) {
-                    onComplete?.();
-                  }
-                  resolve();
-                });
-              }
-            });
-          } catch (ambientErr) {
-            console.warn('[AudioEngine] Error loading ambient track:', ambientErr);
-            resolve();
-          }
+                if (success) {
+                  onComplete?.();
+                }
+                resolve();
+              });
+            }
+          });
         });
-      } catch (err) {
-        console.warn('[AudioEngine] Fatal audio playback error, falling back:', err);
-        this.simulatePlayback(45, onProgress, onComplete);
+      } else {
+        // Solo ambient track
+        this.playAmbientOnly(ambientTrack);
         resolve();
       }
     });
+  }
+
+  /**
+   * Plays ambient track standalone on infinite loop (Calm Zone / Sleep mode)
+   */
+  public playAmbientOnly(track: AmbientTrackType) {
+    this.stopAll();
+    const cleanName = `${track}_loop`;
+    this.ambientSound = new Sound(cleanName, Sound.MAIN_BUNDLE, (err) => {
+      if (!err && this.ambientSound) {
+        this.ambientSound.setNumberOfLoops(-1);
+        this.ambientSound.setVolume(0.8);
+        this.ambientSound.play();
+        this.isPlayingAmbient = true;
+      }
+    });
+  }
+
+  public setLoopMode(enabled: boolean) {
+    this.isLoopMode = enabled;
   }
 
   public togglePause(isPaused: boolean) {
@@ -120,9 +134,15 @@ export class AudioEngine {
           this.voiceSound.play();
           this.ambientSound?.play();
         }
+      } else if (this.ambientSound) {
+        if (isPaused) {
+          this.ambientSound.pause();
+        } else {
+          this.ambientSound.play();
+        }
       }
     } catch (e) {
-      console.warn('[AudioEngine] togglePause error:', e);
+      console.warn('[AudioEngine] togglePause exception:', e);
     }
   }
 
@@ -146,7 +166,7 @@ export class AudioEngine {
           this.ambientSound = null;
           this.isPlayingAmbient = false;
         }
-      } catch (e) {
+      } catch {
         clearInterval(fadeTimer);
       }
     }, stepTime);
