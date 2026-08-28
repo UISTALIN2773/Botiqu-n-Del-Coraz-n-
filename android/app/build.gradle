@@ -3,22 +3,11 @@ apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
 react {
-    /* Folders */
-    // root = file("../..")
-    // reactNativeDir = file("../../node_modules/react-native")
-    // jsRootDir = file("../../src")
-    // libraryName = "BotiquinDelCorazon"
-    /* Variants */
-    // includedRepositoryVariants = ["debug", "release"]
-    // nodeExecutableAndArgs = ["node"]
-    // extraPackagerArgs = []
-    /* Hermes Commands */
-    // hermesCommand = "$rootDir/my-custom-hermesc/bin/hermesc"
-    // hermesFlags = ["-O", "-output-source-map"]
+    /* Hermes & Architecture settings */
+    enableHermes = true
 }
 
 def enableProguardInReleaseBuilds = false
-def jscFlavor = 'org.webkit:android-jsc:+'
 
 android {
     ndkVersion rootProject.ext.ndkVersion
@@ -32,6 +21,10 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
+        
+        ndk {
+            abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+        }
     }
 
     signingConfigs {
@@ -70,6 +63,7 @@ android {
 
 dependencies {
     implementation("com.facebook.react:react-android")
+    implementation("com.facebook.react:hermes-android")
 
     // AndroidX & Core
     implementation "androidx.core:core-ktx:1.12.0"
