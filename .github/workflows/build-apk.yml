@@ -33,6 +33,11 @@ jobs:
       - name: 📦 Instalar dependencias
         run: npm install --legacy-peer-deps
 
+      - name: 📦 Generar Bundle JS offline de React Native
+        run: |
+          mkdir -p android/app/src/main/assets
+          npx react-native bundle --platform android --dev false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res/
+
       - name: 🔑 Generar Keystore de compilación
         run: |
           cd android/app
@@ -82,10 +87,10 @@ jobs:
             ¡Tu APK ya está listo para descargar e instalar en cualquier teléfono Android!
             
             ### ✨ Novedades incluidas:
+            - **100% Offline con Bundle embebido:** La app abre al instante sin requerir servidor ni conexión a internet.
             - **Home Widget Android:** Corazón interactivo con la frase diaria y apertura directa al botiquín.
             - **Doble Capa de Audio con Ducking:** Reproducción de notas de voz sobre fondo ambiental (*lo-fi*, lluvia, piano).
             - **Motor Háptico "Lub-Dub":** Vibración al ritmo del latido cardíaco.
-            - **100% Offline:** Todo el contenido funciona sin conexión a internet ni servidores externos.
             
             ### 📲 Instrucciones de Instalación:
             1. Descarga el archivo `.apk` adjunto abajo en tu teléfono.
