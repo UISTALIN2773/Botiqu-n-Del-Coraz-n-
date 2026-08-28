@@ -7,6 +7,9 @@ on:
     branches: [ "main", "master" ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-android-apk:
     name: 🚀 Compilar APK Android
@@ -26,7 +29,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 18
-          cache: 'npm'
 
       - name: 📦 Instalar dependencias
         run: npm install --legacy-peer-deps
@@ -36,8 +38,11 @@ jobs:
           cd android/app
           keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" || true
 
-      - name: 🔧 Dar permisos de ejecución a Gradle
-        run: chmod +x android/gradlew
+      - name: ⚙️ Configurar Gradle Wrapper
+        run: |
+          cd android
+          gradle wrapper --gradle-version 8.3 || true
+          chmod +x gradlew
 
       - name: 🔨 Compilar APK Release & Debug
         run: |
